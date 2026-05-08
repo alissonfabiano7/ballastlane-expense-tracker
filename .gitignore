@@ -1,0 +1,59 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.cache
+*.dll
+*.pdb
+*.exe
+project.lock.json
+project.fragment.lock.json
+artifacts/
+**/Properties/launchSettings.json
+publish/
+*.ide/
+*.swp
+*.swo
+
+# Test results / coverage
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+*.trx
+.coverlet/
+
+# Rider / Visual Studio
+.idea/
+*.sln.iml
+*.DotSettings.user
+
+# Frontend (Angular)
+node_modules/
+dist/
+.angular/
+.parcel-cache/
+*.tsbuildinfo
+npm-debug.log
+yarn-error.log
+package-lock.json.bak
+
+# Environment / secrets
+*.env
+.env
+.env.*
+!.env.example
+appsettings.Development.json.local
+appsettings.*.local.json
+secrets.json
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/

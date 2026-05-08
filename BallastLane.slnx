@@ -1,0 +1,18 @@
+<Solution>
+  <Folder Name="/db/">
+    <Project Path="db/BallastLane.Migrations/BallastLane.Migrations.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/BallastLane.Api/BallastLane.Api.csproj" />
+    <Project Path="src/BallastLane.Application/BallastLane.Application.csproj" />
+    <Project Path="src/BallastLane.Domain/BallastLane.Domain.csproj" />
+    <Project Path="src/BallastLane.Infrastructure/BallastLane.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/BallastLane.Api.Tests/BallastLane.Api.Tests.csproj" />
+    <Project Path="tests/BallastLane.Application.Tests/BallastLane.Application.Tests.csproj" />
+    <Project Path="tests/BallastLane.ArchitectureTests/BallastLane.ArchitectureTests.csproj" />
+    <Project Path="tests/BallastLane.Domain.Tests/BallastLane.Domain.Tests.csproj" />
+    <Project Path="tests/BallastLane.Infrastructure.Tests/BallastLane.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>
