@@ -50,4 +50,16 @@ public class Argon2idPasswordHasherTests
     {
         _sut.Verify("any-password", malformedHash).ShouldBeFalse();
     }
+
+    [Fact]
+    public void Verify_known_seed_hash_succeeds()
+    {
+        // Mirrors the literal in db/scripts/up/0002_seed.sql.
+        // If the hashing format ever changes, this test catches the seed
+        // drifting before the demo user fails to log in.
+        const string SeedHash =
+            "argon2id$m=19456$t=2$p=1$/bbweUenC6ZPycMfvsiSLw==$jUvhKxaxhXbTcD1CHOCT7fDbXLtt2wM/8rWdfE632/Y=";
+
+        _sut.Verify("Demo@123", SeedHash).ShouldBeTrue();
+    }
 }
