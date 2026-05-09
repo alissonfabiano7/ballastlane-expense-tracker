@@ -125,6 +125,17 @@ Application layer; commit `abc1234`.
   Do NOT fabricate.
 - Issue title in English (matches Conventional Commits convention).
 
+## Workflow
+
+- **Never run `git commit` autonomously.** After making changes that would
+  normally end in a commit, stage them (or leave unstaged), summarize what
+  changed in 1-3 lines, and STOP. Wait for the user to say `commit` / `vai`
+  / `vamos` (or equivalent explicit approval) before running `git commit`.
+  Auto-mode does NOT imply auto-commit. Commits are part of the deliverable
+  for this take-home — every one needs a human gate.
+- Same rule for `git push`, `git tag`, `git rebase`, `git reset`, and any
+  other operation that mutates published or hard-to-reverse state.
+
 ## Other conventions
 
 - **Conventional Commits in English imperative** (`feat:`, `fix:`, `test:`, `refactor:`, `docs:`, `chore:`, `perf:`, `build:`, `ci:`)
