@@ -516,6 +516,53 @@ real secrets.
 
 ---
 
+## Issue — Amount input retains '0' default, forcing manual deletion before typing
+
+### What I observed
+
+Opening the New Expense dialog, the Amount field is pre-filled with the
+literal value `0`. Typing a real amount (e.g. `12.50`) appends to the
+default value rather than replacing it, producing `012.50`. The
+workaround on every create is to select-all + delete (or just the
+leading `0`) before typing — a friction point on what is supposed to
+be the most-used flow in the app.
+
+### Why it's wrong
+
+The reactive form was initialized with
+`amount: [0, [Validators.required, Validators.min(0.01)]]`. The
+validators are correct (required + > 0.01), but the initial value of
+`0` creates a UX trap: the field LOOKS like it carries a placeholder,
+but it actually holds a real value, and `<input type="number">` does
+not auto-select on focus. Standard form UX for numeric inputs is to
+start empty (showing a placeholder hint) or to auto-select on focus —
+never to sit on a literal zero that requires manual deletion.
+
+### What was done
+
+Switched the amount control to a typed `FormControl<number | null>`
+with `null` as the create-time initial value (the edit path still
+hydrates from the existing expense). Added `placeholder="0.00"` and
+`inputmode="decimal"` to the input so the field reads as empty with
+a format hint on create:
+
+```typescript
+amount: new FormControl<number | null>(
+  this.data.expense?.amount ?? null,
+  { validators: [Validators.required, Validators.min(0.01)] },
+),
+```
+
+Submit handler narrows `value.amount` from `number | null` to `number`
+via an explicit guard — unreachable in practice because
+`Validators.required` would have already invalidated the form, but
+kept for type narrowing and defensive clarity. Considered also
+adding `(focus)="select()"` to help the edit flow but rejected as
+out of scope: the reported bug is the create-time `0`, and Material's
+default is no auto-select. Fix at commit `(pending)`.
+
+---
+
 ## Issues caught but not deep-dived
 
 > One-liners for issues that were caught and fixed but didn't warrant a full

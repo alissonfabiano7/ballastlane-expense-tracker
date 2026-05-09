@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import {
@@ -49,6 +49,8 @@ export interface ExpenseFormDialogData {
           <input
             matInput
             type="number"
+            inputmode="decimal"
+            placeholder="0.00"
             min="0.01"
             step="0.01"
             formControlName="amount"
@@ -169,10 +171,13 @@ export class ExpenseFormDialogComponent {
   protected readonly errorMessage = signal<string | null>(null);
 
   protected readonly form = this.fb.nonNullable.group({
-    amount: [
-      this.data.expense?.amount ?? 0,
-      [Validators.required, Validators.min(0.01)],
-    ],
+    // Nullable so the input shows empty (with placeholder) on create instead
+    // of the literal '0' that prepends to typed digits — see issue card
+    // "Amount input retains '0' default" in docs/genai/issues.md.
+    amount: new FormControl<number | null>(
+      this.data.expense?.amount ?? null,
+      { validators: [Validators.required, Validators.min(0.01)] },
+    ),
     category: [
       (this.data.expense?.category ?? 'Food') as ExpenseCategory,
       [Validators.required],
@@ -200,8 +205,13 @@ export class ExpenseFormDialogComponent {
     this.errorMessage.set(null);
     try {
       const value = this.form.getRawValue();
+      if (value.amount === null) {
+        // Unreachable: Validators.required would have flagged the form as invalid
+        // and the early return above would have fired. Guard kept for TS narrowing.
+        return;
+      }
       const command: ExpenseCommand = {
-        amount: Number(value.amount),
+        amount: value.amount,
         description: value.description.trim().length > 0 ? value.description.trim() : null,
         category: value.category,
         incurredAt: value.incurredAt.toISOString(),
