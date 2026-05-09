@@ -2,9 +2,11 @@
 
 ## Language convention (foundational — applies to all artifacts)
 
-- **Conversation with user:** Portuguese (BR). Reply in PT-BR for explanations,
-  questions, status updates, and end-of-turn summaries.
-- **Repository artifacts:** English only. This includes:
+The invariant is **artifact language**, not operator language. Operator
+interaction with AI tooling can be any natural language; what ships in the
+repository is English, always.
+
+- **Repository artifacts: English only.** This includes:
   - Source code (identifiers, classes, methods, variables, namespaces)
   - Inline comments (when present — default is no comments)
   - Commit messages (Conventional Commits in imperative English)
@@ -14,15 +16,19 @@
   - Log messages (Serilog templates)
   - Error messages, ProblemDetails titles, validation messages
   - UI strings in the Angular frontend (login form, snackbars, empty states, errors)
-  - Seed data (emails like `demo@ballastlane.test`, categories like `Food`/`Transport`,
-    sample descriptions). Never `Alimentação`, always `Food`.
+  - Seed data (emails like `demo@ballastlane.test`, categories like
+    `Food`/`Transport`, sample descriptions)
   - Branch names, PR titles, git tags
   - JSON property names (camelCase, English)
   - `.env` and `appsettings.json` keys
 
-**Rule of thumb:** if a string will end up in a file committed to the repo, it's
-English. No exceptions. If you catch yourself writing a Portuguese string into
-a file, stop and translate before saving.
+- **Operator interaction with AI tooling:** any natural language is acceptable.
+  The artifact-language invariant above must hold regardless of the language
+  used to chat with the AI.
+
+**Rule of thumb:** if a string will end up in a file that is committed to the
+repository, it is English. No exceptions. Catch yourself before save: if the
+string is non-English, translate before writing the file.
 
 ## GenAI Audit Trail (mandatory directive)
 
@@ -67,9 +73,10 @@ Without a trigger phrase, do NOT log. Apply only the code fix.
 
 > User: "tô lendo o code e percebi que X tá errado / faltou / é frágil"
 >        (and may ask Claude to help format the card; the catch is human)
-> Action: Append Issue Card with Source line ending in `(AI blind spot)` so
->         the panel reading the doc sees the meta-signal: human gate is
->         catching things Claude's self-review missed.
+> Action: Append Issue Card whose `Human revalidation` body summarizes
+>         the human's catch in the user's voice. The human voice in that
+>         section is the meta-signal that a human gate is closing on
+>         what Claude's self-review missed.
 
 ### Strict Issue Card template
 
@@ -77,43 +84,49 @@ Without a trigger phrase, do NOT log. Apply only the code fix.
 ## Issue — [short technical title in English]
 
 ### What AI generated
-\`\`\`csharp
-[≤10 lines snippet of buggy code, verbatim]
-\`\`\`
+[Description of what was previously generated. Prose by default;
+ include a code snippet only when essential to the point. ≤10 lines
+ if a snippet is used.]
 
 ### Why it's wrong
-[1-2 sentences. Impact-focused: IDOR, info leak, resource leak,
- timezone bug, DoS vector, etc. No fluff.]
+[Technical analysis of the failure: e.g., UTC bypass, missing
+ Enum.IsDefined, undue coupling. Impact-focused.]
 
-### What was committed
-\`\`\`csharp
-[≤10 lines snippet of corrected code]
-\`\`\`
+### What was done
+[Record of the final implementation applied. Prose by default; short
+ code snippet only when essential. ≤10 lines if a snippet is used.
+ Close with the commit hash where the fix landed (or `(pending)` if
+ not yet committed).]
 
-### Source
-[one of the four labels below, plus a short context phrase + commit hash]
+### Human revalidation
+[Empty body if the trigger was an AI cleanup pass.
+ Filled body for any other trigger (live, user manual fix, human
+ review of AI work) — terse review-style note in the developer's
+ voice stating what was found and what was done. Do NOT narrate
+ the conversation ("asked Claude..." / "Claude returned...") or
+ replicate the prompt that triggered the work. Example:
+ "Found X. Fixed Y. Deferred Z." Claude drafts when writing the
+ card; user adjusts voice if needed.]
 ```
 
-### Source taxonomy (mandatory — pick exactly one per card)
+### Trigger paths and the Human revalidation body
 
-- **Live trigger** — user invoked the trigger phrase mid-work; Claude applied
-  the fix and wrote the card in the same turn.
-- **User manual fix** — user corrected the code themselves, then asked Claude
-  to log retroactively (often pasting the original snippet for accuracy).
-- **AI cleanup pass** — Claude self-noticed the issue at the end of a sprint
-  while reading `git log` + diffs; backfilled with reference to the commit
-  hash where the fix landed.
-- **Human review (AI blind spot)** — user, reading the codebase as a human
-  reviewer after Claude's cleanup pass had completed, surfaced an issue
-  Claude failed to flag. Strongest authenticity signal — proves there is a
-  human gate beyond AI's self-audit. Always tagged with `(AI blind spot)`
-  so a panel reader notices the meta-signal.
+The four conceptual triggers (above) collapse to a binary inside the
+card itself, encoded by whether `### Human revalidation` is empty or
+filled:
 
-Format the Source line as a single line, e.g.:
-```
-Human review (AI blind spot) — surfaced during user's manual review of the
-Application layer; commit `abc1234`.
-```
+- **AI cleanup pass** → Human revalidation: **empty**. The absence of a
+  human voice in this section IS the signal that this entry came from
+  Claude's self-audit at sprint boundary.
+- **Live trigger / User manual fix / Human review (AI blind spot)** →
+  Human revalidation: **filled**. Body summarizes what the user said
+  or did, in the user's voice. For `Human review (AI blind spot)`
+  specifically, the body is the strongest authenticity signal — it
+  proves a human gate is closing on what Claude's cleanup missed. The
+  framing `(AI blind spot)` is implicit in the body's phrasing
+  (e.g., "noticed during manual review after cleanup").
+
+There is no `### Source` line.
 
 ### Constraints
 
@@ -135,6 +148,12 @@ Application layer; commit `abc1234`.
   for this take-home — every one needs a human gate.
 - Same rule for `git push`, `git tag`, `git rebase`, `git reset`, and any
   other operation that mutates published or hard-to-reverse state.
+- **Session handoff is conversational, not a committed file.** Do not
+  introduce `_HANDOFF.md` / `HANDOFF.md` / `SESSION.md` (or equivalent
+  operational-status documents) into the repository. Cross-session
+  continuity lives in the chat transcript at session boundaries and is
+  pasted into fresh sessions as the bootstrap message. Repository
+  artifacts are deliverables; operational metadata is not.
 
 ## Other conventions
 
