@@ -559,7 +559,199 @@ via an explicit guard — unreachable in practice because
 kept for type narrowing and defensive clarity. Considered also
 adding `(focus)="select()"` to help the edit flow but rejected as
 out of scope: the reported bug is the create-time `0`, and Material's
-default is no auto-select. Fix at commit `(pending)`.
+default is no auto-select. Fix at commit `60c5b1d`.
+
+---
+
+## Issue — Form fields surface validation error on blur without any input
+
+### What I observed
+
+Clicking into the Amount input on the New Expense dialog and clicking
+out again without typing immediately turns the field red and shows
+"Amount must be greater than zero." Same behavior on every other
+required field across the app — the email and password fields on the
+login screen, the register screen, and Category / Date on the expense
+form all flash a red error the instant the user tabs through them.
+The user hasn't entered anything wrong yet; they just touched the
+field. The accusatory red feels disproportionate.
+
+### Why it's wrong
+
+The `mat-error` blocks were written as
+`@if (form.controls.X.invalid && form.controls.X.touched)`, and
+Angular Material's default `ErrorStateMatcher` follows the same
+`touched && invalid` rule. Required fields are invalid by default
+(until the user types), so any focus-then-blur trips error visibility
+immediately. Standard form UX surfaces errors only when (a) the user
+has actually typed something the validator rejects (`dirty && invalid`),
+or (b) the user attempted to submit (`submitted && invalid`) — never on
+a passive blur of a still-empty field. Material already ships a matcher
+for exactly this rule (`ShowOnDirtyErrorStateMatcher`), but the default
+DI wiring doesn't use it.
+
+### What was done
+
+Provided `ShowOnDirtyErrorStateMatcher` globally in `app.config.ts` so
+all three forms (login, register, expense create/edit) inherit the
+new visibility rule with one line:
+
+```typescript
+import { ErrorStateMatcher, ShowOnDirtyErrorStateMatcher } from '@angular/material/core';
+// ...
+{ provide: ErrorStateMatcher, useClass: ShowOnDirtyErrorStateMatcher }
+```
+
+Errors now surface when the user has typed something invalid OR
+clicked the submit button — not on a blur of a still-empty field. The
+component-local `@if (invalid && touched)` guards still gate whether
+the `<mat-error>` element is projected into the DOM, but Material's
+form-field gates final visibility on the matcher's `errorState`; the
+guards are now redundant but harmless and were left in place to avoid
+a refactor that wasn't on the bug. Fix at commit `(pending)`.
+
+---
+
+## Issue — `0.00` format placeholder hidden by Material's label-inside default
+
+### What I observed
+
+After landing the leading-zero fix (card above), the Amount input on
+the New Expense dialog reads as empty — but the `placeholder="0.00"`
+that was supposed to hint at the format is nowhere to be seen. Instead,
+the floating label `Amount*` sits inside the input area when the field
+is empty + unfocused, occupying the slot where the placeholder would
+go. Click in, click out without typing → the label drops back inside
+and the format hint stays invisible.
+
+### Why it's wrong
+
+Material's `appearance="outline"` form-field has two label states: the
+label "floats" up to the border when the input is focused or has a
+value, and "drops" back inside the input when both empty and unfocused.
+When the label is inside, Material intentionally hides any HTML
+`placeholder` to avoid two pieces of text overlapping. Result: the
+`placeholder="0.00"` added in `60c5b1d` is dead code in the most
+common state (empty New Expense dialog just opened), defeating the
+intent of giving the user a format hint.
+
+### What was done
+
+Set `floatLabel="always"` on the Amount `<mat-form-field>` so the
+label stays pinned to the top border in every state. With the label
+permanently floated, Material renders the placeholder inside the
+input area, and `0.00` is visible from the moment the dialog opens
+through every focus/blur cycle until the user types a value.
+
+```html
+<mat-form-field appearance="outline" floatLabel="always" class="full">
+  <mat-label>Amount</mat-label>
+  <input matInput type="number" placeholder="0.00" ... />
+</mat-form-field>
+```
+
+Scoped to the Amount field only. Category, Date, and Description
+don't have placeholders to surface, so leaving them with the
+default `floatLabel="auto"` keeps the cleaner Material look. Fix
+at commit `(pending)`.
+
+---
+
+## Issue — Amount input lacks currency-grade entry semantics
+
+### What I observed
+
+The Amount input was `<input type="number">`, which delivered three
+separate UX gaps for a USD-only expense field:
+
+1. The decimal separator follows the browser locale — values typed
+   from a locale that uses `,` as the decimal separator wouldn't
+   round-trip cleanly against an API and UI that format USD as `12.34`
+   everywhere else.
+2. Two decimal places weren't enforced — the browser accepted
+   `12.345`, leaving the server validator as the only line of defense.
+3. To enter `$12.34` the user had to type whole digits, then `.`,
+   then cents — a two-step decimal entry for what is conceptually a
+   single currency value. Cash-register-style entry (digits build
+   the value from the cents side) is the convention for currency
+   inputs and is what the user expected.
+
+### Why it's wrong
+
+For a USD-only expense tracker, the Amount input shape should be
+fixed: period as decimal separator, exactly two decimal places, and
+cash-register entry from cents. A locale-dependent `<input type="number">`
+delivers none of these guarantees.
+
+### What was done
+
+Switched the Amount input to `<input type="text" inputmode="decimal">`
+managed manually instead of via `formControlName`, so the dialog
+component owns the entry pipeline:
+
+- **Display**: `amountDisplay()` returns `value.toFixed(2)` whenever
+  the value is non-null — period separator, two decimals, no locale
+  leakage.
+- **Typing**: each keystroke is intercepted; digits APPEND to the
+  cents side of the value (`1`, `2`, `3`, `4` → `0.01`, `0.12`,
+  `1.23`, `12.34`); Backspace and Delete remove the last cent.
+  Capped at `$99,999,999.99` (`9_999_999_999` cents) to fit
+  `DECIMAL(18,2)` with margin and to bound integer math.
+- **Paste**: pasted text is parsed as a regular decimal (not
+  cash-register), so `12.50`, `12,50`, `$12.50`, and `1,234.50` all
+  resolve to the right cents. Garbage that contains no digits is
+  silently dropped.
+- **Blur**: explicitly marks the form control as `touched`, which
+  `formControlName` would have wired automatically — needed so
+  `mat-error` and the `ShowOnDirtyErrorStateMatcher` from the
+  previous card see the right state.
+
+The reactive form keeps `amount` as a `FormControl<number | null>`
+with the existing `Validators.required` and `Validators.min(0.01)`;
+the component just owns the template-side wiring now. Edit-flow
+choice (per user direction): keystrokes append to the existing
+value rather than reset on focus — if the user wants to retype
+from scratch they backspace the old value out first. Fix at
+commit `(pending)`.
+
+---
+
+## Issue — Email validator accepted addresses without a TLD (e.g., `user@host`)
+
+### What I observed
+
+Typing `user@example` (no `.com` / `.test` / TLD of any kind) into the
+Email field of the Login or Register dialog does not trigger any
+client-side error. The form passes validation and the request hits the
+server, which on Login returns a generic 401 ("Invalid email or
+password.") that doesn't tell the user which side is wrong — typo in
+the email or wrong password? On Register the surface is similar: the
+client says nothing, the server eventually rejects, and the user is
+left guessing whether the form is broken or their input is bad.
+
+### Why it's wrong
+
+`Validators.email` follows the HTML5 spec, which treats `user@host`
+(local-only domain) as a valid address — historically because email is
+used inside private networks too. For a public web app where users
+expect to type their real email, the HTML5 permissive shape is wrong:
+the user's mental model is `name@domain.tld`, and any address that
+visibly lacks a TLD should fail closed at the client before a round
+trip to the server.
+
+### What was done
+
+Added `Validators.pattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)` to the email
+control on both `LoginComponent` and `RegisterComponent`. The pattern
+requires at minimum `local@domain.tld` — one or more non-space,
+non-`@` characters before the `@`, after the `@`, and after the
+mandatory `.`. `Validators.email` is kept so the existing length and
+character checks still run; the pattern is added on top as a stricter
+gate. The mat-error message ("Please enter a valid email address.")
+covers both validators since the user-visible meaning is the same.
+Server-side `FluentValidation`'s `EmailAddress()` was left as-is —
+client tightening is enough to remove the round-trip on obvious typos,
+and the server still has the final word. Fix at commit `(pending)`.
 
 ---
 

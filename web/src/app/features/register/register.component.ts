@@ -129,7 +129,20 @@ export class RegisterComponent {
   protected readonly errorMessage = signal<string | null>(null);
 
   protected readonly form = this.fb.nonNullable.group({
-    email: ['', [Validators.required, Validators.email, Validators.maxLength(256)]],
+    // Validators.email follows the HTML5 spec (permits user@host with no
+    // TLD); the extra pattern requires `local@domain.tld` so the client
+    // catches obviously-malformed addresses before the server validator
+    // does. See "Email validator accepted addresses without a TLD" in
+    // docs/genai/issues.md.
+    email: [
+      '',
+      [
+        Validators.required,
+        Validators.email,
+        Validators.pattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/),
+        Validators.maxLength(256),
+      ],
+    ],
     password: ['', [
       Validators.required,
       Validators.minLength(8),

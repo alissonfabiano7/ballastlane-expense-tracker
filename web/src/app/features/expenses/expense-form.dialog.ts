@@ -44,16 +44,18 @@ export interface ExpenseFormDialogData {
     <h2 mat-dialog-title>{{ data.expense ? 'Edit expense' : 'New expense' }}</h2>
     <mat-dialog-content>
       <form [formGroup]="form" (ngSubmit)="onSubmit()" novalidate id="expenseForm">
-        <mat-form-field appearance="outline" class="full">
+        <mat-form-field appearance="outline" floatLabel="always" class="full">
           <mat-label>Amount</mat-label>
           <input
             matInput
-            type="number"
+            type="text"
             inputmode="decimal"
             placeholder="0.00"
-            min="0.01"
-            step="0.01"
-            formControlName="amount"
+            autocomplete="off"
+            [value]="amountDisplay()"
+            (keydown)="onAmountKeyDown($event)"
+            (paste)="onAmountPaste($event)"
+            (blur)="onAmountBlur()"
             required
           />
           <span matTextPrefix>$&nbsp;</span>
@@ -191,6 +193,103 @@ export class ExpenseFormDialogComponent {
       [Validators.maxLength(500)],
     ],
   });
+
+  // Cash-register currency entry: digits append to the cents side of the
+  // value (1, 2, 3, 4 → $0.01, $0.12, $1.23, $12.34); Backspace/Delete
+  // remove the last cent; paste accepts any decimal-looking text and
+  // normalizes to cents. Display always reads as "X.XX" so the decimal
+  // separator is period regardless of browser locale, and the value is
+  // locked to two decimal places by construction.
+
+  private static readonly MaxAmountCents = 9_999_999_999; // $99,999,999.99
+
+  private static readonly NavigationKeys = new Set<string>([
+    'Tab', 'Escape', 'Enter',
+    'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
+    'Home', 'End',
+  ]);
+
+  protected amountDisplay(): string {
+    const v = this.form.controls.amount.value;
+    return v == null ? '' : v.toFixed(2);
+  }
+
+  protected onAmountKeyDown(event: KeyboardEvent): void {
+    if (event.ctrlKey || event.metaKey || event.altKey) {
+      return; // allow Ctrl+A, Cmd+C, etc.
+    }
+    if (ExpenseFormDialogComponent.NavigationKeys.has(event.key)) {
+      return;
+    }
+    event.preventDefault();
+    if (event.key === 'Backspace' || event.key === 'Delete') {
+      this.removeLastCent();
+      return;
+    }
+    if (/^\d$/.test(event.key)) {
+      this.appendDigit(event.key);
+    }
+    // Other keys (letters, symbols) are swallowed by preventDefault above.
+  }
+
+  protected onAmountPaste(event: ClipboardEvent): void {
+    event.preventDefault();
+    const text = event.clipboardData?.getData('text') ?? '';
+    const cents = ExpenseFormDialogComponent.parseClipboardToCents(text);
+    if (cents === null || cents <= 0 || cents > ExpenseFormDialogComponent.MaxAmountCents) {
+      return;
+    }
+    this.form.controls.amount.setValue(cents / 100);
+    this.form.controls.amount.markAsDirty();
+  }
+
+  protected onAmountBlur(): void {
+    // formControlName would have wired this automatically; we manage the
+    // input manually so we have to mark the control touched ourselves.
+    this.form.controls.amount.markAsTouched();
+  }
+
+  private appendDigit(digit: string): void {
+    const current = this.form.controls.amount.value ?? 0;
+    const cents = Math.round(current * 100);
+    const newCents = cents * 10 + parseInt(digit, 10);
+    if (newCents > ExpenseFormDialogComponent.MaxAmountCents) {
+      return;
+    }
+    this.form.controls.amount.setValue(newCents === 0 ? null : newCents / 100);
+    this.form.controls.amount.markAsDirty();
+  }
+
+  private removeLastCent(): void {
+    const current = this.form.controls.amount.value;
+    if (current == null || current === 0) {
+      return;
+    }
+    const cents = Math.round(current * 100);
+    const newCents = Math.floor(cents / 10);
+    this.form.controls.amount.setValue(newCents === 0 ? null : newCents / 100);
+    this.form.controls.amount.markAsDirty();
+  }
+
+  private static parseClipboardToCents(text: string): number | null {
+    const clean = text.replace(/[^\d.,]/g, '');
+    if (clean.length === 0) {
+      return null;
+    }
+    const lastSep = Math.max(clean.lastIndexOf('.'), clean.lastIndexOf(','));
+    let value: number;
+    if (lastSep === -1) {
+      value = parseFloat(clean);
+    } else {
+      const intPart = clean.slice(0, lastSep).replace(/[.,]/g, '');
+      const decPart = clean.slice(lastSep + 1);
+      value = parseFloat((intPart || '0') + '.' + decPart);
+    }
+    if (isNaN(value)) {
+      return null;
+    }
+    return Math.round(value * 100);
+  }
 
   protected onCancel(): void {
     this.dialogRef.close();
