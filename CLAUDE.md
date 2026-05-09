@@ -12,7 +12,7 @@ repository is English, always.
   - Commit messages (Conventional Commits in imperative English)
   - All Markdown docs (README, ADRs, architecture.md, genai.md, planning-session.md)
   - Test names (e.g., `Should_return_404_when_resource_belongs_to_other_user`)
-  - Issue Card titles and bodies in docs/genai.md
+  - Issue Card titles and bodies in docs/genai/issues.md
   - Log messages (Serilog templates)
   - Error messages, ProblemDetails titles, validation messages
   - UI strings in the Angular frontend (login form, snackbars, empty states, errors)
@@ -32,17 +32,20 @@ string is non-English, translate before writing the file.
 
 ## GenAI Audit Trail (mandatory directive)
 
-This project maintains `docs/genai.md` as a live audit log of AI-generated
-code that required correction. Whenever the user invokes a trigger phrase
-in the same turn as a fix request, you MUST append an Issue Card to
-`docs/genai.md` in addition to applying the code fix.
+This project maintains `docs/genai/issues.md` as a live audit log of
+AI-generated code that required correction. The headline document
+`docs/genai.md` is the deliverable's summary and points to the audit
+trail; the cards themselves are appended to `docs/genai/issues.md`.
+Whenever the user invokes a trigger phrase in the same turn as a fix
+request, you MUST append an Issue Card to `docs/genai/issues.md` in
+addition to applying the code fix.
 
 ### Trigger phrases (any of these in the user message)
 
 - "audit isso" / "audita isso"
 - "registra no genai" / "registre no genai"
 - "issue card"
-- Explicit: "log this in docs/genai.md"
+- Explicit: "log this in docs/genai/issues.md"
 
 Without a trigger phrase, do NOT log. Apply only the code fix.
 
@@ -78,15 +81,27 @@ Without a trigger phrase, do NOT log. Apply only the code fix.
 >         section is the meta-signal that a human gate is closing on
 >         what Claude's self-review missed.
 
-### Strict Issue Card template
+### Two card templates, two sections
+
+`docs/genai/issues.md` has two top-level sections, each with its own
+template. The SECTION the card lives in IS the encoding of the catch
+source — there is no `### Source` label, and no other field needs to
+be filled to identify the origin.
+
+#### Template A — Cleanup-pass cards (Claude self-audit)
+
+Goes under `## Cleanup-pass cards (Claude self-audit)` in `issues.md`.
+Used when Claude reads sprint-boundary git diffs and surfaces issues
+that escaped real-time logging (trigger path 3). Five sections;
+`### Human revalidation` is intentionally **empty** — its emptiness
+IS the signal of automated origin.
 
 ```markdown
 ## Issue — [short technical title in English]
 
 ### What AI generated
 [Description of what was previously generated. Prose by default;
- include a code snippet only when essential to the point. ≤10 lines
- if a snippet is used.]
+ include a code snippet only when essential. ≤10 lines if used.]
 
 ### Why it's wrong
 [Technical analysis of the failure: e.g., UTC bypass, missing
@@ -94,43 +109,51 @@ Without a trigger phrase, do NOT log. Apply only the code fix.
 
 ### What was done
 [Record of the final implementation applied. Prose by default; short
- code snippet only when essential. ≤10 lines if a snippet is used.
- Close with the commit hash where the fix landed (or `(pending)` if
- not yet committed).]
+ code snippet only when essential. ≤10 lines if used. Close with the
+ commit hash where the fix landed (or `(pending)` if not yet committed).]
 
 ### Human revalidation
-[Empty body if the trigger was an AI cleanup pass.
- Filled body for any other trigger (live, user manual fix, human
- review of AI work) — terse review-style note in the developer's
- voice stating what was found and what was done. Do NOT narrate
- the conversation ("asked Claude..." / "Claude returned...") or
- replicate the prompt that triggered the work. Example:
- "Found X. Fixed Y. Deferred Z." Claude drafts when writing the
- card; user adjusts voice if needed.]
+[Leave the body empty. The absence of a human voice in this section
+ IS the signal that this entry came from Claude's self-audit.]
 ```
 
-### Trigger paths and the Human revalidation body
+#### Template B — Human-discovered cards (usage + direct audit)
 
-The four conceptual triggers (above) collapse to a binary inside the
-card itself, encoded by whether `### Human revalidation` is empty or
-filled:
+Goes under `## Human-discovered cards (usage + direct audit)` in
+`issues.md`. Used when the developer surfaces an issue through direct
+usage of the running app, manual code review, or a live trigger during
+a fix session (trigger paths 1, 2, 4). Three sections; the entire card
+is in the developer's voice, so a separate "Human revalidation"
+section is redundant. The "What was done" section may include a later
+review note if the original fix was revisited (e.g., "sprint-boundary
+review confirmed the fix is appropriately sized").
 
-- **AI cleanup pass** → Human revalidation: **empty**. The absence of a
-  human voice in this section IS the signal that this entry came from
-  Claude's self-audit at sprint boundary.
-- **Live trigger / User manual fix / Human review (AI blind spot)** →
-  Human revalidation: **filled**. Body summarizes what the user said
-  or did, in the user's voice. For `Human review (AI blind spot)`
-  specifically, the body is the strongest authenticity signal — it
-  proves a human gate is closing on what Claude's cleanup missed. The
-  framing `(AI blind spot)` is implicit in the body's phrasing
-  (e.g., "noticed during manual review after cleanup").
+```markdown
+## Issue — [short technical title in English]
 
-There is no `### Source` line.
+### What I observed
+[The behavior the developer encountered or the design gap they noticed.
+ Concrete and specific: what the user did, what the app did, what looked
+ wrong. First-person framing because the human IS the source of truth.]
+
+### Why it's wrong
+[Technical analysis of the failure. Same shape as Template A.]
+
+### What was done
+[Record of the fix applied. Same shape as Template A. May include a
+ trailing review note if the fix was revisited at a sprint boundary
+ (e.g., "Sprint-boundary review: existing fix sized appropriately;
+ considered hardening X but rejected as over-engineering.").]
+```
 
 ### Constraints
 
-- ALWAYS append to end of file. Never rewrite or reorder existing entries.
+- ALWAYS append to the END of the appropriate section in
+  `docs/genai/issues.md`. Trigger path 3 (cleanup pass) → Cleanup-pass
+  section. Trigger paths 1, 2, 4 (live, manual, human review) →
+  Human-discovered section. Never rewrite or reorder existing entries.
+  Never edit `docs/genai.md` for a card — the headline file holds only
+  the summary and the count.
 - Keep snippets short (≤10 lines each). If the function is longer,
   show only the relevant section with `// ...` markers.
 - If you don't recall what was originally generated (User manual fix with
