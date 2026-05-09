@@ -7,26 +7,23 @@ import {
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
-import {
-  ErrorStateMatcher,
-  ShowOnDirtyErrorStateMatcher,
-  provideNativeDateAdapter,
-} from '@angular/material/core';
+import { ErrorStateMatcher, provideNativeDateAdapter } from '@angular/material/core';
 
 import { routes } from './app.routes';
 import { credentialsInterceptor } from './core/credentials.interceptor';
 import { AuthService } from './core/auth.service';
+import { SubmittedErrorStateMatcher } from './core/error-state-matcher';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideAnimationsAsync(),
     provideNativeDateAdapter(),
-    // Show form-field errors only when the user has typed something invalid
-    // (dirty) OR has attempted to submit — never on a passive blur of a
-    // still-empty field. See "Form fields surface validation error on blur"
-    // in docs/genai/issues.md.
-    { provide: ErrorStateMatcher, useClass: ShowOnDirtyErrorStateMatcher },
+    // Defer form-field error visibility entirely until the user clicks
+    // submit. Typing is uninterrupted; errors surface together on the
+    // first submit attempt and stay live thereafter. See "Form-field
+    // errors still surfaced during typing" in docs/genai/issues.md.
+    { provide: ErrorStateMatcher, useClass: SubmittedErrorStateMatcher },
     provideHttpClient(withFetch(), withInterceptors([credentialsInterceptor])),
     provideRouter(routes, withComponentInputBinding()),
     provideAppInitializer(async () => {

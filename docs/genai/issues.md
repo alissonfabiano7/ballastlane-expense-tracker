@@ -755,6 +755,60 @@ and the server still has the final word. Fix at commit `996a489`.
 
 ---
 
+## Issue — Form-field errors still surfaced during typing under ShowOnDirty
+
+### What I observed
+
+After `996a489` swapped the default `ErrorStateMatcher` for
+`ShowOnDirtyErrorStateMatcher`, the focus-then-blur flash was gone but
+errors still appeared LIVE as the user typed — for example, typing
+`abc` into the Email field on the Login screen surfaced "Please enter
+a valid email address." mid-keystroke. Same on Register and on the
+Amount field of the New Expense dialog. The user wanted validation
+to be a clean SUBMIT step: type freely without interruption, click
+"Sign in" / "Create account" / "Create" / "Save", THEN see all errors
+together. Live error feedback during typing still dirties the visual
+experience.
+
+### Why it's wrong
+
+`ShowOnDirtyErrorStateMatcher` returns true on
+`(dirty || submitted) && invalid`. Any keystroke marks the control
+dirty, so the moment the user types something that fails a validator
+(an in-progress email, a partial password) the error surfaces. For
+this app's preferred UX, validation visibility should be deferred
+completely until the user expresses intent to submit. The HTML5 /
+Material default was too eager; `ShowOnDirty` was a half-measure.
+
+### What was done
+
+Replaced the global `ShowOnDirtyErrorStateMatcher` provider with a
+custom `SubmittedErrorStateMatcher` (`core/error-state-matcher.ts`)
+that returns `true` only when `(submitted && invalid)`:
+
+```typescript
+@Injectable({ providedIn: 'root' })
+export class SubmittedErrorStateMatcher implements ErrorStateMatcher {
+  isErrorState(
+    control: FormControl | null,
+    form: FormGroupDirective | NgForm | null,
+  ): boolean {
+    return !!(control && control.invalid && form && form.submitted);
+  }
+}
+```
+
+`FormGroupDirective.submitted` flips to `true` on the form's first
+`(ngSubmit)`, so until then no error visibility on any field. After
+the first submit, errors become live so the user sees corrections
+update as they type. Applies globally to login, register, and the
+expense form. The `markAllAsTouched()` calls in submit handlers are
+left in place — harmless under the new matcher and still useful if a
+field-level consumer ever depends on `touched`. Fix at commit
+`(pending)`.
+
+---
+
 ## Issues caught but not deep-dived
 
 > One-liners for issues that were caught and fixed but didn't warrant a full
