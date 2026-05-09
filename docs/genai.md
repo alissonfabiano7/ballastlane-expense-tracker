@@ -3,24 +3,26 @@
 ## Methodology
 
 This document is maintained collaboratively by the developer and Claude Code.
-The prompt and representative output are static (written once at the start of
-the project). The Issue Cards are append-only entries; each card declares its
-**Source** as one of four paths:
+The prompt and representative output are static (written once at the start
+of the project). The Issue Cards are append-only entries that follow a
+strict five-section template:
 
-1. **Live trigger** — user invoked a phrase mid-work; Claude applied the fix
-   and wrote the card in the same turn.
-2. **User manual fix** — user corrected the code themselves and asked Claude
-   to log retroactively.
-3. **AI cleanup pass** — Claude self-noticed during an end-of-sprint review of
-   `git log` + diffs; backfilled with the commit hash where the fix landed.
-4. **Human review (AI blind spot)** — user, reading the codebase as a human
-   reviewer after Claude's cleanup pass had run, surfaced an issue Claude
-   failed to flag. Tagged `(AI blind spot)` for visibility — the meta-signal
-   is that there is a human gate beyond AI's self-audit.
+1. `## Issue` — short technical title.
+2. `### What AI generated` — description of what was previously generated.
+3. `### Why it's wrong` — technical analysis of the failure.
+4. `### What was done` — record of the final implementation applied,
+   closing with the commit hash.
+5. `### Human revalidation` — the developer's review note. **Empty** when
+   the catch came from a Claude self-audit at sprint boundary; **filled**
+   when a human caught or directed the fix, in which case the body states
+   what was found and what was done in the developer's voice — terse,
+   review-style, no narration of the conversation that produced the fix.
 
-The git history at `docs/genai.md` confirms the chronology. The project's
-`CLAUDE.md` file at the repository root holds the audit directive that
-governs how this document is written.
+The blank-vs-filled state of `Human revalidation` encodes the source of the
+catch: Claude self-audit when empty, human-driven when filled. There is no
+explicit `Source` label. The git history at `docs/genai.md` confirms the
+chronology. The project's `CLAUDE.md` file at the repository root holds the
+audit directive that governs how this document is written.
 
 ---
 
@@ -106,9 +108,10 @@ For each file, show the unit test FIRST (red), then the production code (green).
 
 ## 3. Issue cards — corrections applied during development
 
-> Append-only. Each card follows the strict template defined in `CLAUDE.md`.
-> Cards are written in real-time during fix turns when the user invokes a
-> trigger phrase. The git history at this file confirms chronological order.
+> Append-only. Each card follows the five-section template defined in
+> `CLAUDE.md`. The blank-vs-filled state of `Human revalidation` encodes the
+> source of the catch (Claude self-audit when empty, human-driven when
+> filled). Git history at this file confirms chronological order.
 
 <!-- Issue cards will be appended below this marker. Do not edit cards above this line. -->
 
@@ -129,16 +132,22 @@ maps to `::1` first; the listener is published only on the IPv4 bridge.
 Result: 30-second TCP timeout on every grate run, with the misleading
 error "the wait operation timed out".
 
-### What was committed
+### What was done
 
 ```csharp
 const string DefaultConnectionString =
     "Server=tcp:127.0.0.1,1433;Database=BallastLane;User Id=sa;Password=BallastLane@2026!;TrustServerCertificate=True;Encrypt=True;Connect Timeout=60";
 ```
 
-### Source
+Fix at commit `5ce380c` (Sprint 1.2).
 
-AI cleanup pass — backfilled from grate failure during Sprint 1.2 (commit `5ce380c`)
+### Human revalidation
+
+Reviewed for take-home sizing. Existing fix (`tcp:127.0.0.1` IPv4
+literal + `Connect Timeout=60`) is appropriate. Considered hardening
+(remove hardcoded `sa` credentials, fail-loud on missing config) but
+rejected — over-engineering for a 7-day exercise where dev fixtures
+are not real secrets.
 
 ---
 
@@ -173,7 +182,7 @@ private constructor goes through the setter, so any edge-case row blows
 up during reconstruction. The bypass requirement and the `field` keyword
 are mutually exclusive on the same property.
 
-### What was committed
+### What was done
 
 ```csharp
 public decimal Amount { get; private set; }
@@ -189,9 +198,9 @@ public static Expense Create(/* ... */)
 public static Expense Hydrate(/* ... */) => new(/* ... */); // bypasses guards
 ```
 
-### Source
+Fix at commit `41bdacd` (Sprint 1.3).
 
-AI cleanup pass — recognized while writing Domain tests in Sprint 1.3 (commit `41bdacd`)
+### Human revalidation
 
 ---
 
@@ -215,7 +224,7 @@ project. Importing `BallastLane.Application.Common` alongside makes
 `ApplicationException` ambiguous at every call site that uses both
 namespaces — compile error at every throw.
 
-### What was committed
+### What was done
 
 ```csharp
 public abstract class AppException : Exception
@@ -224,9 +233,9 @@ public abstract class AppException : Exception
 }
 ```
 
-### Source
+Fix at commit `36a4604` (Sprint 1.4).
 
-AI cleanup pass — caught at first build of Sprint 1.4 (commit `36a4604`)
+### Human revalidation
 
 ---
 
@@ -249,7 +258,7 @@ domain version takes `IReadOnlyDictionary<string, string[]>`. The
 compiler refuses to pick one. Tooling guesses the wrong one in
 auto-fix scenarios.
 
-### What was committed
+### What was done
 
 ```csharp
 throw new Common.ValidationException(
@@ -258,9 +267,9 @@ throw new Common.ValidationException(
         .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray()));
 ```
 
-### Source
+Fix at commit `36a4604` (Sprint 1.4).
 
-AI cleanup pass — caught running Sprint 1.4 tests (commit `36a4604`)
+### Human revalidation
 
 ---
 
@@ -284,7 +293,7 @@ separate package `Microsoft.Extensions.Options.ConfigurationExtensions`.
 This is a stale-API failure mode: AI suggests an API that existed in
 older library versions but moved.
 
-### What was committed
+### What was done
 
 ```csharp
 // + dotnet add package Microsoft.Extensions.Options.ConfigurationExtensions
@@ -295,9 +304,9 @@ services
     .ValidateOnStart();
 ```
 
-### Source
+Fix at commit `d7f1f5a` (Sprint 1.5).
 
-AI cleanup pass — caught at Sprint 1.5 build (commit `d7f1f5a`)
+### Human revalidation
 
 ---
 
@@ -325,7 +334,7 @@ as a service descriptor — it accumulates registrations through
 survives alongside the stub, and `/health/ready` returns 503 in tests
 because the stub connection string can't reach SQL Server.
 
-### What was committed
+### What was done
 
 ```csharp
 services.PostConfigure<HealthCheckServiceOptions>(options =>
@@ -339,9 +348,9 @@ services.PostConfigure<HealthCheckServiceOptions>(options =>
 });
 ```
 
-### Source
+Fix at commit `274464e` (Sprint 1.6).
 
-AI cleanup pass — caught while debugging Sprint 1.6 Api tests (commit `274464e`)
+### Human revalidation
 
 ---
 
@@ -373,7 +382,7 @@ validating with the dev secret while StubTokenService signed with the
 test secret. Cookies were set correctly, then `/auth/me` returned 401
 silently — the kind of test failure that wastes an afternoon.
 
-### What was committed
+### What was done
 
 ```csharp
 // StubTokenService now mirrors appsettings.Development.json verbatim
@@ -386,9 +395,9 @@ public const string Secret = "dev-only-jwt-secret-do-not-use-in-prod-XYZ123-padd
 // use the same key by construction.
 ```
 
-### Source
+Fix at commit `274464e` (Sprint 1.6).
 
-AI cleanup pass — caught while debugging GET /auth/me test in Sprint 1.6 (commit `274464e`)
+### Human revalidation
 
 ---
 
@@ -402,7 +411,6 @@ AI cleanup pass — caught while debugging GET /auth/me test in Sprint 1.6 (comm
 - `AppException` was originally `sealed`, which prevented `ConflictException` from inheriting; relaxed to non-sealed (`36a4604`)
 - `HealthCheckWriters` placed in `BallastLane.Api` namespace but `Program.cs` (top-level statements) had no matching `using` — added missing import (`274464e`)
 - First Domain test file omitted `using BallastLane.Domain.Common`, even though `DomainValidationException` was thrown by `User.Create` — added import (`41bdacd`)
-- Initial JWT cookie attempt did not customize `OnChallenge`, so unauthenticated requests returned `WWW-Authenticate: Bearer` (browser would prompt); added `ctx.HandleResponse()` to plain 401 (`274464e`)
 
 ---
 
