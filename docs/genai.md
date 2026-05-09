@@ -401,6 +401,209 @@ Fix at commit `274464e` (Sprint 1.6).
 
 ---
 
+## Issue — Validator's `Enum.TryParse` accepted comma-separated values and integer fallbacks
+
+### What AI generated
+
+```csharp
+RuleFor(c => c.Category)
+    .NotEmpty().WithMessage("Category is required.")
+    .Must(value => Enum.TryParse<ExpenseCategory>(value, ignoreCase: true, out _))
+        .WithMessage(c => $"Category '{c.Category}' is not recognized. ...");
+```
+
+### Why it's wrong
+
+`Enum.TryParse` is leniently spec'd: it trims surrounding whitespace ("food "
+parses), accepts comma-separated names regardless of `[Flags]` ("Food,Transport"
+parses to a bitwise OR), and accepts ANY integer string ("999" parses to
+`(ExpenseCategory)999`). The validator was meant to gate on a known enum
+NAME, not pass through anything the parser tolerates. The downstream
+`Enum.Parse` in the use case would succeed but produce a value that
+round-trips to a non-canonical or out-of-range enum, polluting the
+`Category` column and bypassing the SQL CHECK constraint catch-up.
+
+### What was done
+
+Switched to a strict name comparison against `Enum.GetNames<ExpenseCategory>()`
+with `OrdinalIgnoreCase`. Only canonical names ("Food", "food", "FOOD") pass;
+anything with a separator, padding, or numeric form fails closed.
+
+```csharp
+.Must(IsKnownCategoryName)
+
+internal static bool IsKnownCategoryName(string? value)
+    => value is not null && Enum.GetNames<ExpenseCategory>()
+        .Any(name => string.Equals(name, value, StringComparison.OrdinalIgnoreCase));
+```
+
+Fix at commit `0fc4193` (Sprint 2.2).
+
+### Human revalidation
+
+---
+
+## Issue — JWT 'sub' claim was silently remapped to `ClaimTypes.NameIdentifier`
+
+### What AI generated
+
+```csharp
+private static Guid ResolveUserId(ClaimsPrincipal user)
+{
+    string? sub = user.FindFirstValue(JwtRegisteredClaimNames.Sub);
+    if (sub is null || !Guid.TryParse(sub, out Guid userId))
+        throw new InvalidOperationException("...missing 'sub'...");
+    return userId;
+}
+```
+
+### Why it's wrong
+
+.NET's `JwtSecurityTokenHandler` ships with a non-empty
+`DefaultInboundClaimTypeMap` that rewrites `"sub"` to
+`ClaimTypes.NameIdentifier` before the principal reaches the endpoint.
+Reading only `JwtRegisteredClaimNames.Sub` returns null in production even
+though the token explicitly carries the claim. Every authenticated request
+to `/expenses` would have thrown the "missing 'sub'" exception — and this
+only manifests with the real JwtBearer pipeline, not in unit-tested helpers
+that build a `ClaimsPrincipal` directly.
+
+### What was done
+
+Defensive read of both claim names, mirroring the pattern that `/auth/me`
+already used in Sprint 1:
+
+```csharp
+string? sub = user.FindFirstValue(JwtRegisteredClaimNames.Sub)
+    ?? user.FindFirstValue(ClaimTypes.NameIdentifier);
+```
+
+A cleaner long-term fix is `JwtSecurityTokenHandler.DefaultMapInboundClaims = false`
+at startup so claims pass through verbatim, but the defensive read keeps both
+claim names supported regardless of the global setting and matches the
+established `/auth/me` pattern.
+
+Fix at commit `65c9bdc` (Sprint 2.4).
+
+### Human revalidation
+
+---
+
+## Issue — Argon2id seed hash had no first-class generation tool
+
+### What AI generated
+
+The seed migration `0002_seed.sql` needs a literal Argon2id hash for the
+demo password. The Argon2id format embeds a random salt, so the hash cannot
+be hand-computed — it has to come out of the actual hasher. The first instinct
+was to inline a placeholder hash and ask a future contributor to swap it.
+
+### Why it's wrong
+
+A placeholder breaks the round-trip: when grate applies the seed,
+`Argon2idPasswordHasher.Verify("Demo@123", placeholder)` returns false and
+the demo user can't sign in. The repository had no scaffolded tool to
+generate the right hash, so the path of least resistance — copying any
+plausible-looking hash literal — would silently break login until somebody
+attempted it manually.
+
+### What was done
+
+Two-step approach. First, a temporary xUnit test (`_GenerateSeedHash`) used
+`ITestOutputHelper.WriteLine` to print a real hash for `"Demo@123"`; the
+value was extracted via
+`dotnet test --logger "console;verbosity=detailed" | grep SEED_HASH` and
+embedded in the SQL. The temp test was then deleted. Second, a permanent
+guard test (`Verify_known_seed_hash_succeeds`) was added to
+`Argon2idPasswordHasherTests` that holds the same literal and asserts
+`Verify("Demo@123", literal)` returns true — so any future change to the
+hash format breaks this test BEFORE the demo user breaks in production.
+
+Fix at commit `2c29247` (Sprint 2.5).
+
+### Human revalidation
+
+---
+
+## Issue — API failed to bind to a known port without a launchSettings.json
+
+### What AI generated
+
+The Sprint 1 API was written assuming the developer would always launch via
+`Properties/launchSettings.json` — a file that is gitignored. With a fresh
+clone and `dotnet run --no-launch-profile`, Kestrel falls back to
+`ASPNETCORE_URLS` (unset), and `appsettings.Development.json` is not loaded
+unless `ASPNETCORE_ENVIRONMENT=Development` is also set, so JWT and SQL
+config validation throw on startup with cascading inner exceptions.
+
+### Why it's wrong
+
+A new contributor cloning the repo and running `dotnet run` gets two
+failures stacked: missing config (ValidateOnStart blows up) AND no
+documented URL (the SPA proxy can't target an unknown port). The API
+needed a deterministic dev-time binding that worked without per-developer
+launch profiles, so `web/proxy.conf.json` and the README could point to
+one stable URL.
+
+### What was done
+
+Pinned the Kestrel endpoint in `appsettings.Development.json`:
+
+```json
+"Kestrel": {
+  "Endpoints": {
+    "Http": { "Url": "http://localhost:5080" }
+  }
+}
+```
+
+Now `ASPNETCORE_ENVIRONMENT=Development dotnet run` always binds to 5080,
+the SPA proxy targets it deterministically, and the README can document
+one URL. The environment-variable requirement remains as a documentation
+item for the README in Sprint 3.
+
+Fix at commit `9e8a898` (Sprint 2.6).
+
+### Human revalidation
+
+---
+
+## Issue — Standalone Angular component used a pipe without declaring it in `imports`
+
+### What AI generated
+
+```typescript
+@Component({
+  selector: 'app-confirm-delete-dialog',
+  standalone: true,
+  imports: [MatDialogModule, MatButtonModule],
+  template: `... ({{ data.amount | currency: 'USD' }}) ...`,
+})
+```
+
+### Why it's wrong
+
+Standalone components in Angular must list every directive AND pipe used
+in their template inside the `imports` array — there is no module-level
+`BrowserModule.declarations` fallback. Forgetting the pipe yields a
+template-compiler error: `NG8004: No pipe found with name 'currency'.`
+The build fails, but only when the file is reached during compilation —
+easy to miss when iterating on the more visible list / form components.
+
+### What was done
+
+Added `CurrencyPipe` (from `@angular/common`) to the dialog's `imports`
+array. Audited the sibling components (`expenses-list`,
+`expense-form.dialog`); both already imported `CurrencyPipe` and `DatePipe`
+correctly from the start, so the issue was localized to the late-added
+confirmation dialog.
+
+Fix at commit `c4dcc3d` (Sprint 2.7).
+
+### Human revalidation
+
+---
+
 ## 4. Issues caught but not deep-dived
 
 > One-liners for issues that were caught and fixed but didn't warrant a full
@@ -411,6 +614,12 @@ Fix at commit `274464e` (Sprint 1.6).
 - `AppException` was originally `sealed`, which prevented `ConflictException` from inheriting; relaxed to non-sealed (`36a4604`)
 - `HealthCheckWriters` placed in `BallastLane.Api` namespace but `Program.cs` (top-level statements) had no matching `using` — added missing import (`274464e`)
 - First Domain test file omitted `using BallastLane.Domain.Common`, even though `DomainValidationException` was thrown by `User.Create` — added import (`41bdacd`)
+- `ng add @angular/material` did not pull in `@angular/animations` as a peer; manual `npm install @angular/animations@^21.2.0` was required before the dev build resolved (`9e8a898`)
+- NG8107 warning: `form.controls.description.value?.length` used `?.` on a non-nullable form value; collapsed to plain `.value.length` (`c4dcc3d`)
+- `provideZonelessChangeDetection` was added then removed during Sprint 2.6 to stay aligned with the original "zone-based" plan; OnPush + signals were kept since they work in both modes (`9e8a898`)
+- `provideAppInitializer` blocks app boot until `auth.refresh()` resolves; if `/auth/me` hangs because the API is unreachable, the SPA sits on a white screen with no fallback timeout — gap, deferred (`9e8a898`)
+- `ExpenseFormDialog` serializes the date picker's `Date` via `toISOString()`; a user in UTC-N selecting "today" near local midnight can produce an `incurredAt` the server rejects as "in the future" — gap, deferred together with the Sprint 2.1 domain UTC work (`c4dcc3d`)
+- API antiforgery middleware (`UseAntiforgery`) is still not wired; CSRF cookies are issued but never validated on `POST /expenses`, `PUT`, or `DELETE` — Sprint 1 carry-over, deliberately consistent
 
 ---
 
