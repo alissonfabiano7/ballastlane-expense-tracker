@@ -1,0 +1,17 @@
+{
+  "/auth": {
+    "target": "http://localhost:5080",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/expenses": {
+    "target": "http://localhost:5080",
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/health": {
+    "target": "http://localhost:5080",
+    "secure": false,
+    "changeOrigin": true
+  }
+}
