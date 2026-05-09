@@ -805,7 +805,7 @@ update as they type. Applies globally to login, register, and the
 expense form. The `markAllAsTouched()` calls in submit handlers are
 left in place — harmless under the new matcher and still useful if a
 field-level consumer ever depends on `touched`. Fix at commit
-`(pending)`.
+`8a9e23e`.
 
 ---
 
