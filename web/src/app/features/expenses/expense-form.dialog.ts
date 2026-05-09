@@ -271,6 +271,34 @@ export class ExpenseFormDialogComponent {
     this.form.controls.amount.markAsDirty();
   }
 
+  // The MatDatepicker returns a JS Date with time = 00:00 in the user's
+  // LOCAL timezone, which can shift the calendar day (and trip the server's
+  // "no future date" check) when serialized via toISOString() in some
+  // timezones. Resolve by branching on the picker's relationship to "today":
+  //   - Today → send the current UTC moment so the value can never be ahead
+  //     of the server's DateTime.UtcNow regardless of the user's offset.
+  //   - Past  → send noon UTC of the selected day. Noon UTC stays on the
+  //     same calendar day when displayed in any timezone from UTC-12 to
+  //     UTC+11 — covers all practical user locales for this take-home.
+  // See "ExpenseFormDialog could send incurredAt in the server's future"
+  // in docs/genai/issues.md.
+  private static toIncurredAtUtcIso(picked: Date): string {
+    const today = new Date();
+    const isToday =
+      picked.getFullYear() === today.getFullYear() &&
+      picked.getMonth() === today.getMonth() &&
+      picked.getDate() === today.getDate();
+
+    if (isToday) {
+      return today.toISOString();
+    }
+
+    const utcNoon = new Date(
+      Date.UTC(picked.getFullYear(), picked.getMonth(), picked.getDate(), 12, 0, 0),
+    );
+    return utcNoon.toISOString();
+  }
+
   private static parseClipboardToCents(text: string): number | null {
     const clean = text.replace(/[^\d.,]/g, '');
     if (clean.length === 0) {
@@ -313,7 +341,7 @@ export class ExpenseFormDialogComponent {
         amount: value.amount,
         description: value.description.trim().length > 0 ? value.description.trim() : null,
         category: value.category,
-        incurredAt: value.incurredAt.toISOString(),
+        incurredAt: ExpenseFormDialogComponent.toIncurredAtUtcIso(value.incurredAt),
       };
       const saved = this.data.expense
         ? await this.expensesService.update(this.data.expense.id, command)

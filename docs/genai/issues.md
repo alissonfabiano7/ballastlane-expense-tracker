@@ -809,6 +809,62 @@ field-level consumer ever depends on `touched`. Fix at commit
 
 ---
 
+## Issue — `ExpenseFormDialog` could send `incurredAt` ahead of the server's clock
+
+### What I observed
+
+The deferred bullet in the prior cleanup pass flagged this as a
+theoretical gap, but the failure mode is real: the `MatDatepicker`
+hands back a JavaScript `Date` representing midnight in the user's
+LOCAL timezone, and `value.incurredAt.toISOString()` mechanically
+converts that to UTC. For users in UTC-positive timezones who pick
+"today" early in their local day, the resulting wire value can be
+AHEAD of the server's `DateTime.UtcNow` — the server's domain
+validator (`EnsureValidIncurredAt`) then rejects with
+"IncurredAt cannot be in the future." and the user gets a 400 they
+have no obvious way to interpret.
+
+A second, quieter failure mode: even when the value is in the past
+from the server's view, the calendar day stored may not match the
+calendar day the user picked when later displayed in a different
+timezone (silent date-shift on read).
+
+### Why it's wrong
+
+The picker's `[max]="today"` doesn't help — `today` is a `Date` in
+the user's local timezone, so the picker's notion of "today" can be a
+day ahead of the server's UTC `today`. The straight `.toISOString()`
+conversion preserves the LOCAL midnight as a UTC instant, which is
+the wrong semantic: the user picked "this calendar day", not "midnight
+of this day in my timezone". The two interpretations only collide for
+users in non-zero offsets, but that's most of the world.
+
+### What was done
+
+Added a `toIncurredAtUtcIso(picked: Date)` static helper on
+`ExpenseFormDialogComponent` that branches on the picker's
+relationship to "today":
+
+- **Today (in local timezone)** → send `new Date().toISOString()`
+  (the current UTC moment). By construction the value is never ahead
+  of the server's `DateTime.UtcNow`, so the future-date rejection
+  cannot trigger.
+- **Past date** → send noon UTC of the selected day
+  (`Date.UTC(y, m, d, 12, 0, 0)`). Noon UTC stays on the same calendar
+  day when displayed in any timezone from UTC-12 through UTC+11 —
+  covers every practical user locale for this take-home with a small
+  buffer on each side. Users in UTC+12 / +13 (Tonga, Samoa, Fiji)
+  may see a +1 day shift on display of past dates; documented as a
+  known edge.
+
+Replaced the bare `value.incurredAt.toISOString()` in `onSubmit`
+with a call to the helper. Localized to one file; no server change.
+The deferred Sprint 2.1 domain UTC + Category guards work would
+harden this further on the server side but is out of scope for this
+card. Fix at commit `(pending)`.
+
+---
+
 ## Issues caught but not deep-dived
 
 > One-liners for issues that were caught and fixed but didn't warrant a full
@@ -823,5 +879,4 @@ field-level consumer ever depends on `touched`. Fix at commit
 - NG8107 warning: `form.controls.description.value?.length` used `?.` on a non-nullable form value; collapsed to plain `.value.length` (`c4dcc3d`)
 - `provideZonelessChangeDetection` was added then removed during Sprint 2.6 to stay aligned with the original "zone-based" plan; OnPush + signals were kept since they work in both modes (`9e8a898`)
 - `provideAppInitializer` blocks app boot until `auth.refresh()` resolves; if `/auth/me` hangs because the API is unreachable, the SPA sits on a white screen with no fallback timeout — gap, deferred (`9e8a898`)
-- `ExpenseFormDialog` serializes the date picker's `Date` via `toISOString()`; a user in UTC-N selecting "today" near local midnight can produce an `incurredAt` the server rejects as "in the future" — gap, deferred together with the Sprint 2.1 domain UTC work (`c4dcc3d`)
 - API antiforgery middleware (`UseAntiforgery`) is still not wired; CSRF cookies are issued but never validated on `POST /expenses`, `PUT`, or `DELETE` — Sprint 1 carry-over, deliberately consistent
