@@ -7,6 +7,7 @@ import {
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
+import { provideNativeDateAdapter } from '@angular/material/core';
 
 import { routes } from './app.routes';
 import { credentialsInterceptor } from './core/credentials.interceptor';
@@ -16,6 +17,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideAnimationsAsync(),
+    provideNativeDateAdapter(),
     provideHttpClient(withFetch(), withInterceptors([credentialsInterceptor])),
     provideRouter(routes, withComponentInputBinding()),
     provideAppInitializer(async () => {
