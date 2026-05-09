@@ -102,14 +102,297 @@ For each file, show the unit test FIRST (red), then the production code (green).
 
 <!-- Issue cards will be appended below this marker. Do not edit cards above this line. -->
 
+## Issue — SqlClient `localhost` resolves to IPv6 against Podman-hosted SQL Server
+
+### What AI generated
+
+```csharp
+const string DefaultConnectionString =
+    "Server=localhost,1433;Database=BallastLane;User Id=sa;Password=BallastLane@2026!;TrustServerCertificate=True;Encrypt=True";
+```
+
+### Why it's wrong
+
+Microsoft.Data.SqlClient 7.0 + Podman's port forwarding triggers an IPv6
+resolution path that times out before falling back to IPv4. `localhost`
+maps to `::1` first; the listener is published only on the IPv4 bridge.
+Result: 30-second TCP timeout on every grate run, with the misleading
+error "the wait operation timed out".
+
+### What was committed
+
+```csharp
+const string DefaultConnectionString =
+    "Server=tcp:127.0.0.1,1433;Database=BallastLane;User Id=sa;Password=BallastLane@2026!;TrustServerCertificate=True;Encrypt=True;Connect Timeout=60";
+```
+
+### Source
+
+Cleanup pass — backfilled from grate failure during Sprint 1.2 (commit `5ce380c`)
+
+---
+
+## Issue — `field` keyword traps validation inside Hydrate path
+
+### What AI generated
+
+```csharp
+public sealed class Expense
+{
+    public decimal Amount
+    {
+        get;
+        private set
+        {
+            if (value <= 0m) throw new DomainValidationException("...");
+            field = value; // C# 14 'field' keyword
+        }
+    }
+
+    public static Expense Hydrate(Guid id, /* ... */ decimal amount, /* ... */)
+        => new(id, /* ... */ amount, /* ... */); // ctor → setter → validation
+}
+```
+
+### Why it's wrong
+
+`Hydrate` exists so repositories can reconstruct entities from DB rows
+without re-running invariants the DB-level constraints already guard.
+The `field` keyword keeps validation inside the property setter, and the
+private constructor goes through the setter, so any edge-case row blows
+up during reconstruction. The bypass requirement and the `field` keyword
+are mutually exclusive on the same property.
+
+### What was committed
+
+```csharp
+public decimal Amount { get; private set; }
+
+public static Expense Create(/* ... */)
+{
+    EnsureValidAmount(amount); // explicit guard before ctor
+    EnsureValidDescription(description);
+    EnsureValidIncurredAt(incurredAt, utcNow);
+    return new Expense(/* ... */);
+}
+
+public static Expense Hydrate(/* ... */) => new(/* ... */); // bypasses guards
+```
+
+### Source
+
+Cleanup pass — recognized while writing Domain tests in Sprint 1.3 (commit `41bdacd`)
+
+---
+
+## Issue — Custom `ApplicationException` shadows `System.ApplicationException`
+
+### What AI generated
+
+```csharp
+namespace BallastLane.Application.Common;
+
+public abstract class ApplicationException : Exception
+{
+    protected ApplicationException(string message) : base(message) { }
+}
+```
+
+### Why it's wrong
+
+`System.ApplicationException` is in the implicit usings of every .NET
+project. Importing `BallastLane.Application.Common` alongside makes
+`ApplicationException` ambiguous at every call site that uses both
+namespaces — compile error at every throw.
+
+### What was committed
+
+```csharp
+public abstract class AppException : Exception
+{
+    protected AppException(string message) : base(message) { }
+}
+```
+
+### Source
+
+Cleanup pass — caught at first build of Sprint 1.4 (commit `36a4604`)
+
+---
+
+## Issue — `ValidationException` collides with FluentValidation's
+
+### What AI generated
+
+```csharp
+using FluentValidation;
+using BallastLane.Application.Common;
+// ...
+throw new ValidationException(errorsDictionary); // CS0104: ambiguous
+```
+
+### Why it's wrong
+
+FluentValidation ships its own `FluentValidation.ValidationException`
+with a different shape (takes `IEnumerable<ValidationFailure>`); my
+domain version takes `IReadOnlyDictionary<string, string[]>`. The
+compiler refuses to pick one. Tooling guesses the wrong one in
+auto-fix scenarios.
+
+### What was committed
+
+```csharp
+throw new Common.ValidationException(
+    validation.Errors
+        .GroupBy(e => e.PropertyName)
+        .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray()));
+```
+
+### Source
+
+Cleanup pass — caught running Sprint 1.4 tests (commit `36a4604`)
+
+---
+
+## Issue — `OptionsBuilder.Bind` does not exist; correct API is `BindConfiguration`
+
+### What AI generated
+
+```csharp
+services
+    .AddOptions<SqlSettings>()
+    .Bind(configuration.GetSection(SqlSettings.SectionName)) // CS1929
+    .ValidateDataAnnotations()
+    .Validate(s => !string.IsNullOrWhiteSpace(s.ConnectionString), "...");
+```
+
+### Why it's wrong
+
+`Bind` is an extension on `IConfiguration`, not on `OptionsBuilder<T>`.
+The correct path is `BindConfiguration(sectionPath)` shipped in the
+separate package `Microsoft.Extensions.Options.ConfigurationExtensions`.
+This is a stale-API failure mode: AI suggests an API that existed in
+older library versions but moved.
+
+### What was committed
+
+```csharp
+// + dotnet add package Microsoft.Extensions.Options.ConfigurationExtensions
+services
+    .AddOptions<SqlSettings>()
+    .BindConfiguration(SqlSettings.SectionName)
+    .Validate(s => !string.IsNullOrWhiteSpace(s.ConnectionString), "...")
+    .ValidateOnStart();
+```
+
+### Source
+
+Cleanup pass — caught at Sprint 1.5 build (commit `d7f1f5a`)
+
+---
+
+## Issue — Health check stub: filtering ServiceDescriptors does not capture HealthCheckRegistration
+
+### What AI generated
+
+```csharp
+ServiceDescriptor[] healthRegistrations = services
+    .Where(d => d.ServiceType == typeof(HealthCheckRegistration))
+    .ToArray();
+foreach (ServiceDescriptor existing in healthRegistrations)
+{
+    services.Remove(existing); // removes nothing — wrong service type
+}
+services.AddHealthChecks().AddCheck("stub", () => HealthCheckResult.Healthy(), tags: ["ready"]);
+```
+
+### Why it's wrong
+
+`AddHealthChecks().AddCheck(...)` does NOT register `HealthCheckRegistration`
+as a service descriptor — it accumulates registrations through
+`IConfigureOptions<HealthCheckServiceOptions>`. Filtering DI for
+`HealthCheckRegistration` finds nothing, the original `SqlServerHealthCheck`
+survives alongside the stub, and `/health/ready` returns 503 in tests
+because the stub connection string can't reach SQL Server.
+
+### What was committed
+
+```csharp
+services.PostConfigure<HealthCheckServiceOptions>(options =>
+{
+    options.Registrations.Clear();
+    options.Registrations.Add(new HealthCheckRegistration(
+        name: "sqlserver-stub",
+        instance: new StubHealthCheck(),
+        failureStatus: HealthStatus.Unhealthy,
+        tags: ["ready", "db"]));
+});
+```
+
+### Source
+
+Cleanup pass — caught while debugging Sprint 1.6 Api tests (commit `274464e`)
+
+---
+
+## Issue — Test JWT secret diverged from the secret the API host actually loaded
+
+### What AI generated
+
+```csharp
+// In BallastLaneApiFactory: in-memory override
+config.AddInMemoryCollection(new Dictionary<string, string?>
+{
+    ["Jwt:Issuer"] = "BallastLane.Api.Test",
+    ["Jwt:Secret"] = "test-only-jwt-secret-must-be-32-chars-or-more-padding-padding",
+});
+
+// In StubTokenService: hardcoded matching the in-memory override
+public const string Issuer = "BallastLane.Api.Test";
+public const string Secret = "test-only-jwt-secret-must-be-32-chars-or-more-padding-padding";
+```
+
+### Why it's wrong
+
+`Program.cs` resolves `JwtSettings` directly via
+`configuration.GetSection("Jwt").Get<JwtSettings>()` at startup and
+feeds those values into `TokenValidationParameters`. WebApplicationFactory
+loads `appsettings.Development.json` first; my in-memory override
+should win on key collisions, but the JwtBearer pipeline ended up
+validating with the dev secret while StubTokenService signed with the
+test secret. Cookies were set correctly, then `/auth/me` returned 401
+silently — the kind of test failure that wastes an afternoon.
+
+### What was committed
+
+```csharp
+// StubTokenService now mirrors appsettings.Development.json verbatim
+public const string Issuer = "BallastLane.Api";
+public const string Audience = "BallastLane.Client";
+public const string Secret = "dev-only-jwt-secret-do-not-use-in-prod-XYZ123-padding-padding-padding";
+
+// And the test factory only overrides Sql:ConnectionString — Jwt is
+// inherited from appsettings.Development.json so signing and validation
+// use the same key by construction.
+```
+
+### Source
+
+Cleanup pass — caught while debugging GET /auth/me test in Sprint 1.6 (commit `274464e`)
+
 ---
 
 ## 4. Issues caught but not deep-dived
 
-> Populated in the cleanup pass at the end of the project. One-liner summaries
-> of issues that were caught and fixed but did not warrant a full Issue Card.
+> One-liners for issues that were caught and fixed but didn't warrant a full
+> Issue Card. Each ties to a real commit.
 
-- _(populated in Sprint 3 cleanup pass)_
+- `dotnet new` templates for .NET 10 still emit `Class1.cs` / `UnitTest1.cs` boilerplate — deleted in initial commit (`3bb1d88`)
+- `grate --databasename` flag does not exist; database is encoded in the connection string (`5ce380c`)
+- `AppException` was originally `sealed`, which prevented `ConflictException` from inheriting; relaxed to non-sealed (`36a4604`)
+- `HealthCheckWriters` placed in `BallastLane.Api` namespace but `Program.cs` (top-level statements) had no matching `using` — added missing import (`274464e`)
+- First Domain test file omitted `using BallastLane.Domain.Common`, even though `DomainValidationException` was thrown by `User.Create` — added import (`41bdacd`)
+- Initial JWT cookie attempt did not customize `OnChallenge`, so unauthenticated requests returned `WWW-Authenticate: Bearer` (browser would prompt); added `ctx.HandleResponse()` to plain 401 (`274464e`)
 
 ---
 
