@@ -924,7 +924,7 @@ authenticated principal and rejects the older token. The SPA already
 calls `auth.fetchCsrfToken()` after login for exactly this reason —
 the test fixture was the missing piece. A new test
 `POST_expenses_returns_400_when_csrf_token_missing` locks in the new
-guard. Fix at commit `(pending)`.
+guard. Fix at commit `65eb192`.
 
 ---
 
