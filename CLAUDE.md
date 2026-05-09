@@ -40,21 +40,36 @@ in the same turn as a fix request, you MUST append an Issue Card to
 
 Without a trigger phrase, do NOT log. Apply only the code fix.
 
-### Two scenarios
+### Four source paths
 
-**Scenario A — Claude generated buggy code, user asks fix:**
+**1. Live trigger — Claude generated buggy code, user invokes phrase mid-work:**
 
 > User: "Refaz GetByIdAsync — esqueceu filtro por userId. IDOR. Audit isso."
 > Action: (1) Apply fix to code. (2) Append Issue Card describing
 >         the original output and the fix.
 
-**Scenario B — User fixed manually, informs Claude to log:**
+**2. User manual fix — user fixed manually, informs Claude to log:**
 
 > User: "Adicionei ValidateLifetime=true no JWT porque você gerou sem.
 >        Registra no genai."
 > Action: (1) Read current state of file, identify what changed.
 >         (2) Append Issue Card describing the original mistake and
 >             the manual correction.
+
+**3. AI cleanup pass — at sprint boundary, on user request:**
+
+> User: "faz o cleanup pass do sprint X"
+> Action: Read `git log` + commit diffs for that sprint. Identify 5-7
+>         substantive issues that were fixed during the work but never
+>         logged. Append cards anchored to commit hashes.
+
+**4. Human review (AI blind spot) — user catches what Claude's cleanup missed:**
+
+> User: "tô lendo o code e percebi que X tá errado / faltou / é frágil"
+>        (and may ask Claude to help format the card; the catch is human)
+> Action: Append Issue Card with Source line ending in `(AI blind spot)` so
+>         the panel reading the doc sees the meta-signal: human gate is
+>         catching things Claude's self-review missed.
 
 ### Strict Issue Card template
 
@@ -76,7 +91,28 @@ Without a trigger phrase, do NOT log. Apply only the code fix.
 \`\`\`
 
 ### Source
-[Scenario A — fixed by Claude on request | Scenario B — user manual fix logged after the fact]
+[one of the four labels below, plus a short context phrase + commit hash]
+```
+
+### Source taxonomy (mandatory — pick exactly one per card)
+
+- **Live trigger** — user invoked the trigger phrase mid-work; Claude applied
+  the fix and wrote the card in the same turn.
+- **User manual fix** — user corrected the code themselves, then asked Claude
+  to log retroactively (often pasting the original snippet for accuracy).
+- **AI cleanup pass** — Claude self-noticed the issue at the end of a sprint
+  while reading `git log` + diffs; backfilled with reference to the commit
+  hash where the fix landed.
+- **Human review (AI blind spot)** — user, reading the codebase as a human
+  reviewer after Claude's cleanup pass had completed, surfaced an issue
+  Claude failed to flag. Strongest authenticity signal — proves there is a
+  human gate beyond AI's self-audit. Always tagged with `(AI blind spot)`
+  so a panel reader notices the meta-signal.
+
+Format the Source line as a single line, e.g.:
+```
+Human review (AI blind spot) — surfaced during user's manual review of the
+Application layer; commit `abc1234`.
 ```
 
 ### Constraints
@@ -84,7 +120,7 @@ Without a trigger phrase, do NOT log. Apply only the code fix.
 - ALWAYS append to end of file. Never rewrite or reorder existing entries.
 - Keep snippets short (≤10 lines each). If the function is longer,
   show only the relevant section with `// ...` markers.
-- If you don't recall what was originally generated (Scenario B with
+- If you don't recall what was originally generated (User manual fix with
   unclear history), ASK the user to paste the original snippet.
   Do NOT fabricate.
 - Issue title in English (matches Conventional Commits convention).

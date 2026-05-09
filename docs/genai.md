@@ -2,15 +2,25 @@
 
 ## Methodology
 
-This document is maintained collaboratively by the developer and Claude Code. The
-prompt and representative output are static (written once at the start of the
-project). The Issue Cards are append-only entries written by Claude Code in
-real-time during fix turns, triggered by explicit phrases ("audit isso",
-"registra no genai") in user messages. The git history at `docs/genai.md`
-confirms the chronology — the methodology is the artifact.
+This document is maintained collaboratively by the developer and Claude Code.
+The prompt and representative output are static (written once at the start of
+the project). The Issue Cards are append-only entries; each card declares its
+**Source** as one of four paths:
 
-The project's `CLAUDE.md` file at the repository root contains the audit
-directive that governs how this document is written.
+1. **Live trigger** — user invoked a phrase mid-work; Claude applied the fix
+   and wrote the card in the same turn.
+2. **User manual fix** — user corrected the code themselves and asked Claude
+   to log retroactively.
+3. **AI cleanup pass** — Claude self-noticed during an end-of-sprint review of
+   `git log` + diffs; backfilled with the commit hash where the fix landed.
+4. **Human review (AI blind spot)** — user, reading the codebase as a human
+   reviewer after Claude's cleanup pass had run, surfaced an issue Claude
+   failed to flag. Tagged `(AI blind spot)` for visibility — the meta-signal
+   is that there is a human gate beyond AI's self-audit.
+
+The git history at `docs/genai.md` confirms the chronology. The project's
+`CLAUDE.md` file at the repository root holds the audit directive that
+governs how this document is written.
 
 ---
 
@@ -128,7 +138,7 @@ const string DefaultConnectionString =
 
 ### Source
 
-Cleanup pass — backfilled from grate failure during Sprint 1.2 (commit `5ce380c`)
+AI cleanup pass — backfilled from grate failure during Sprint 1.2 (commit `5ce380c`)
 
 ---
 
@@ -181,7 +191,7 @@ public static Expense Hydrate(/* ... */) => new(/* ... */); // bypasses guards
 
 ### Source
 
-Cleanup pass — recognized while writing Domain tests in Sprint 1.3 (commit `41bdacd`)
+AI cleanup pass — recognized while writing Domain tests in Sprint 1.3 (commit `41bdacd`)
 
 ---
 
@@ -216,7 +226,7 @@ public abstract class AppException : Exception
 
 ### Source
 
-Cleanup pass — caught at first build of Sprint 1.4 (commit `36a4604`)
+AI cleanup pass — caught at first build of Sprint 1.4 (commit `36a4604`)
 
 ---
 
@@ -250,7 +260,7 @@ throw new Common.ValidationException(
 
 ### Source
 
-Cleanup pass — caught running Sprint 1.4 tests (commit `36a4604`)
+AI cleanup pass — caught running Sprint 1.4 tests (commit `36a4604`)
 
 ---
 
@@ -287,7 +297,7 @@ services
 
 ### Source
 
-Cleanup pass — caught at Sprint 1.5 build (commit `d7f1f5a`)
+AI cleanup pass — caught at Sprint 1.5 build (commit `d7f1f5a`)
 
 ---
 
@@ -331,7 +341,7 @@ services.PostConfigure<HealthCheckServiceOptions>(options =>
 
 ### Source
 
-Cleanup pass — caught while debugging Sprint 1.6 Api tests (commit `274464e`)
+AI cleanup pass — caught while debugging Sprint 1.6 Api tests (commit `274464e`)
 
 ---
 
@@ -378,7 +388,7 @@ public const string Secret = "dev-only-jwt-secret-do-not-use-in-prod-XYZ123-padd
 
 ### Source
 
-Cleanup pass — caught while debugging GET /auth/me test in Sprint 1.6 (commit `274464e`)
+AI cleanup pass — caught while debugging GET /auth/me test in Sprint 1.6 (commit `274464e`)
 
 ---
 
