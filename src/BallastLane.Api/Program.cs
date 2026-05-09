@@ -1,8 +1,10 @@
 using System.Text;
 using BallastLane.Api;
 using BallastLane.Api.Auth;
+using BallastLane.Api.Expenses;
 using BallastLane.Api.Middleware;
 using BallastLane.Application.Auth;
+using BallastLane.Application.Expenses;
 using BallastLane.Infrastructure;
 using BallastLane.Infrastructure.Configuration;
 using FluentValidation;
@@ -30,6 +32,11 @@ builder.WebHost.ConfigureKestrel(options =>
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddTransient<RegisterUserUseCase>();
 builder.Services.AddTransient<LoginUseCase>();
+builder.Services.AddTransient<CreateExpenseUseCase>();
+builder.Services.AddTransient<UpdateExpenseUseCase>();
+builder.Services.AddTransient<GetExpenseByIdUseCase>();
+builder.Services.AddTransient<ListExpensesUseCase>();
+builder.Services.AddTransient<DeleteExpenseUseCase>();
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterUserCommandValidator>();
 
 // --- Auth (JWT in HttpOnly cookie) ---
@@ -137,6 +144,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 
 // --- Endpoints ---
 app.MapAuthEndpoints();
+app.MapExpensesEndpoints();
 app.MapOpenApi();
 
 await app.RunAsync();

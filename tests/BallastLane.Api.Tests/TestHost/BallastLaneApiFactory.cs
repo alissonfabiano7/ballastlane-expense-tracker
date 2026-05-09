@@ -1,4 +1,5 @@
 using BallastLane.Application.Auth;
+using BallastLane.Application.Expenses;
 using BallastLane.Application.Users;
 using BallastLane.Domain.Users;
 using BallastLane.Infrastructure.Configuration;
@@ -15,6 +16,7 @@ namespace BallastLane.Api.Tests.TestHost;
 public sealed class BallastLaneApiFactory : WebApplicationFactory<Program>
 {
     public InMemoryUserRepository UserRepository { get; } = new();
+    public InMemoryExpenseRepository ExpenseRepository { get; } = new();
     public Argon2idLikeFakePasswordHasher PasswordHasher { get; } = new();
     public StubTokenService TokenService { get; } = new();
 
@@ -37,6 +39,7 @@ public sealed class BallastLaneApiFactory : WebApplicationFactory<Program>
         builder.ConfigureTestServices(services =>
         {
             ReplaceSingleton<IUserRepository>(services, UserRepository);
+            ReplaceSingleton<IExpenseRepository>(services, ExpenseRepository);
             ReplaceSingleton<IPasswordHasher>(services, PasswordHasher);
             ReplaceSingleton<ITokenService>(services, TokenService);
 
