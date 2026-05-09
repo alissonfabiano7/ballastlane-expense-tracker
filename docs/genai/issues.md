@@ -608,7 +608,7 @@ component-local `@if (invalid && touched)` guards still gate whether
 the `<mat-error>` element is projected into the DOM, but Material's
 form-field gates final visibility on the matcher's `errorState`; the
 guards are now redundant but harmless and were left in place to avoid
-a refactor that wasn't on the bug. Fix at commit `(pending)`.
+a refactor that wasn't on the bug. Fix at commit `996a489`.
 
 ---
 
@@ -653,7 +653,7 @@ through every focus/blur cycle until the user types a value.
 Scoped to the Amount field only. Category, Date, and Description
 don't have placeholders to surface, so leaving them with the
 default `floatLabel="auto"` keeps the cleaner Material look. Fix
-at commit `(pending)`.
+at commit `996a489`.
 
 ---
 
@@ -712,7 +712,7 @@ the component just owns the template-side wiring now. Edit-flow
 choice (per user direction): keystrokes append to the existing
 value rather than reset on focus — if the user wants to retype
 from scratch they backspace the old value out first. Fix at
-commit `(pending)`.
+commit `996a489`.
 
 ---
 
@@ -751,7 +751,7 @@ gate. The mat-error message ("Please enter a valid email address.")
 covers both validators since the user-visible meaning is the same.
 Server-side `FluentValidation`'s `EmailAddress()` was left as-is —
 client tightening is enough to remove the round-trip on obvious typos,
-and the server still has the final word. Fix at commit `(pending)`.
+and the server still has the final word. Fix at commit `996a489`.
 
 ---
 
