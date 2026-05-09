@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using BallastLane.Api.Auth;
 using BallastLane.Application.Common;
 using BallastLane.Application.Expenses;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -12,7 +13,8 @@ public static class ExpensesEndpoints
     {
         RouteGroupBuilder group = app.MapGroup("/expenses")
             .WithTags("Expenses")
-            .RequireAuthorization();
+            .RequireAuthorization()
+            .RequireAntiforgery();
 
         group.MapPost("/", CreateAsync).WithName("CreateExpense");
         group.MapGet("/", ListAsync).WithName("ListExpenses");

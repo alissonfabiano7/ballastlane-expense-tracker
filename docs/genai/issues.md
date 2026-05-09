@@ -865,6 +865,69 @@ card. Fix at commit `aa8b316`.
 
 ---
 
+## Issue — Anti-CSRF tokens issued but never validated on mutating endpoints
+
+### What I observed
+
+The Sprint 1 deferred bullet flagged this as a known gap: the API
+generated and set the `XSRF-TOKEN` / `.ballastlane.antiforgery` cookies
+on `/auth/login`, `/auth/register`, and `/auth/csrf-token`, but the
+`UseAntiforgery()` middleware was never wired into the pipeline, so
+`POST /expenses`, `PUT /expenses/{id}`, and `DELETE /expenses/{id}`
+all accepted requests with no `X-XSRF-TOKEN` header at all. Anyone
+who tricked an authenticated user's browser into submitting a
+cross-site mutation could pass the auth check via the SameSite=Lax
+cookie and the server would happily process the write.
+
+### Why it's wrong
+
+The cookie-based JWT auth was sold as "XSS-resistant via HttpOnly
+plus CSRF defense via the anti-forgery token pair". Half of that
+contract was unenforced: the tokens existed, the SPA's interceptor
+faithfully forwarded `X-XSRF-TOKEN` on every mutation, but the server
+never compared the header to the cookie. The HttpOnly cookie alone
+is not a CSRF defense — it stops JS from reading the token, but the
+browser still sends it on cross-site requests under SameSite=Lax for
+top-level navigations.
+
+### What was done
+
+Three changes:
+
+1. `app.UseAntiforgery()` added to the API pipeline after
+   `app.UseAuthorization()`. The framework middleware ships with
+   implicit validation for form-bound endpoints only; a custom
+   `IAntiforgeryMetadata` implementation was tried first to opt JSON
+   endpoints in, but the middleware did not consistently recognize
+   it on .NET 10 (verified by curl smoke against the running API —
+   the POST kept returning 201 with no token).
+2. Replaced the metadata path with a small extension method
+   `RequireAntiforgery()` (in `Auth/AntiforgeryEndpointExtensions.cs`)
+   that attaches an `AddEndpointFilter` calling
+   `IAntiforgery.ValidateRequestAsync` on every mutating method
+   (POST/PUT/PATCH/DELETE). Applied to the `/expenses` group and to
+   `POST /auth/logout`. `AntiforgeryValidationException` bubbles up
+   to the existing `ExceptionHandlingMiddleware`, which maps it to
+   400 with the ProblemDetails body.
+3. `/auth/login` and `/auth/register` opt out via
+   `.DisableAntiforgery()` — anonymous bootstraps, the user has no
+   token before authenticating. `AntiforgeryCookieName` extracted
+   as a constant on `AuthCookieOptions` to avoid duplication between
+   `Program.cs` and the test fixture.
+
+The integration tests' `LoggedInClientAsync` was updated to fetch
+`/auth/csrf-token` after `/auth/login`. The login-time antiforgery
+token is bound to the still-anonymous request principal (the auth
+cookie is on the response, not yet applied to `HttpContext.User`); on
+subsequent authenticated mutations the validator binds to the now-
+authenticated principal and rejects the older token. The SPA already
+calls `auth.fetchCsrfToken()` after login for exactly this reason —
+the test fixture was the missing piece. A new test
+`POST_expenses_returns_400_when_csrf_token_missing` locks in the new
+guard. Fix at commit `(pending)`.
+
+---
+
 ## Issues caught but not deep-dived
 
 > One-liners for issues that were caught and fixed but didn't warrant a full
@@ -879,4 +942,3 @@ card. Fix at commit `aa8b316`.
 - NG8107 warning: `form.controls.description.value?.length` used `?.` on a non-nullable form value; collapsed to plain `.value.length` (`c4dcc3d`)
 - `provideZonelessChangeDetection` was added then removed during Sprint 2.6 to stay aligned with the original "zone-based" plan; OnPush + signals were kept since they work in both modes (`9e8a898`)
 - `provideAppInitializer` blocks app boot until `auth.refresh()` resolves; if `/auth/me` hangs because the API is unreachable, the SPA sits on a white screen with no fallback timeout — gap, deferred (`9e8a898`)
-- API antiforgery middleware (`UseAntiforgery`) is still not wired; CSRF cookies are issued but never validated on `POST /expenses`, `PUT`, or `DELETE` — Sprint 1 carry-over, deliberately consistent

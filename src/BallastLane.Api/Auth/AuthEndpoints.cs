@@ -12,16 +12,24 @@ public static class AuthEndpoints
     {
         RouteGroupBuilder group = app.MapGroup("/auth").WithTags("Auth");
 
+        // /register and /login are anonymous bootstraps: the user has no
+        // antiforgery token before the first round-trip. /logout is
+        // authenticated and stays under antiforgery validation.
         group.MapPost("/register", RegisterAsync)
             .AllowAnonymous()
+            .DisableAntiforgery()
             .WithName("RegisterUser");
 
         group.MapPost("/login", LoginAsync)
             .AllowAnonymous()
+            .DisableAntiforgery()
             .WithName("LoginUser");
 
+        // Authenticated POST → must validate antiforgery so an attacker can't
+        // CSRF a logged-in user into being signed out.
         group.MapPost("/logout", Logout)
             .RequireAuthorization()
+            .RequireAntiforgery()
             .WithName("LogoutUser");
 
         group.MapGet("/csrf-token", IssueCsrfToken)

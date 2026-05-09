@@ -84,7 +84,7 @@ builder.Services.AddAuthorization();
 builder.Services.AddAntiforgery(options =>
 {
     options.HeaderName = AuthCookieOptions.CsrfHeaderName;
-    options.Cookie.Name = ".ballastlane.antiforgery";
+    options.Cookie.Name = AuthCookieOptions.AntiforgeryCookieName;
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Lax;
     options.Cookie.SecurePolicy = builder.Environment.IsProduction()
@@ -127,6 +127,12 @@ if (app.Environment.IsProduction())
 app.UseCors("BallastLaneSpa");
 app.UseAuthentication();
 app.UseAuthorization();
+// Validates anti-forgery tokens on POST/PUT/PATCH/DELETE endpoints whose
+// metadata enables it (the default for Minimal API endpoints unless
+// explicitly opted out via DisableAntiforgery()). Anonymous endpoints
+// like /auth/login and /auth/register opt out — the user has no token
+// before authenticating.
+app.UseAntiforgery();
 
 // --- Health endpoints ---
 app.MapHealthChecks("/health", new HealthCheckOptions

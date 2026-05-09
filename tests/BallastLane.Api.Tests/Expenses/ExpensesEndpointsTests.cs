@@ -62,6 +62,28 @@ public class ExpensesEndpointsTests : IClassFixture<BallastLaneApiFactory>
     }
 
     [Fact]
+    public async Task POST_expenses_returns_400_when_csrf_token_missing()
+    {
+        SeedUser("demo@ballastlane.test", "Demo@123");
+        using HttpClient client = _factory.CreateClient();
+        HttpResponseMessage login = await client.PostAsJsonAsync(
+            "/auth/login", new LoginCommand("demo@ballastlane.test", "Demo@123"));
+        login.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        // Authenticated client (auth cookie + antiforgery cookie tracked
+        // automatically) but no X-XSRF-TOKEN header → antiforgery rejects.
+        HttpResponseMessage response = await client.PostAsJsonAsync("/expenses", new
+        {
+            amount = 10m,
+            description = "x",
+            category = "Food",
+            incurredAt = FixedUtcNow,
+        });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async Task POST_expenses_returns_401_without_auth_cookie()
     {
         using HttpClient client = _factory.CreateClient();
@@ -214,11 +236,24 @@ public class ExpensesEndpointsTests : IClassFixture<BallastLaneApiFactory>
             "/auth/login", new LoginCommand(email, "Demo@123"));
         login.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        string authCookie = login.Headers
+        // After login, re-fetch antiforgery tokens via /auth/csrf-token now
+        // that the request principal is the authenticated user. The
+        // login-time tokens were minted while the request principal was
+        // still anonymous (the new auth cookie was set on the response, not
+        // applied to the current request's HttpContext.User), so they would
+        // be rejected on subsequent authenticated mutations because the
+        // antiforgery service binds tokens to the user identity.
+        HttpResponseMessage csrf = await client.GetAsync("/auth/csrf-token");
+        csrf.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        // Cookies (auth + antiforgery + xsrf) are auto-tracked by
+        // HttpClientHandler. Surface the re-issued request token as the
+        // X-XSRF-TOKEN header so the antiforgery filter accepts mutations.
+        string xsrfToken = csrf.Headers
             .GetValues("Set-Cookie")
-            .First(c => c.StartsWith($"{AuthCookieOptions.AuthCookieName}=", StringComparison.Ordinal))
-            .Split(';')[0];
-        client.DefaultRequestHeaders.Add("Cookie", authCookie);
+            .First(c => c.StartsWith($"{AuthCookieOptions.CsrfCookieName}=", StringComparison.Ordinal))
+            .Split(';')[0][$"{AuthCookieOptions.CsrfCookieName}=".Length..];
+        client.DefaultRequestHeaders.Add(AuthCookieOptions.CsrfHeaderName, xsrfToken);
 
         return (client, userId);
     }

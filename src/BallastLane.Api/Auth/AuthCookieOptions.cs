@@ -5,6 +5,7 @@ public static class AuthCookieOptions
     public const string AuthCookieName = "ballastlane.auth";
     public const string CsrfHeaderName = "X-XSRF-TOKEN";
     public const string CsrfCookieName = "XSRF-TOKEN";
+    public const string AntiforgeryCookieName = ".ballastlane.antiforgery";
 
     public static CookieOptions ForAuth(DateTime expiresAtUtc, bool isProduction) => new()
     {
