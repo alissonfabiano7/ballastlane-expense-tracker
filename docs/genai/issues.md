@@ -861,7 +861,7 @@ Replaced the bare `value.incurredAt.toISOString()` in `onSubmit`
 with a call to the helper. Localized to one file; no server change.
 The deferred Sprint 2.1 domain UTC + Category guards work would
 harden this further on the server side but is out of scope for this
-card. Fix at commit `(pending)`.
+card. Fix at commit `aa8b316`.
 
 ---
 
