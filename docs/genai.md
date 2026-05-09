@@ -126,9 +126,48 @@ through `c4dcc3d`); chronological order within each section in
 
 ## 4. Methodology note (final reflection)
 
-> Populated at the very end of the project. A one-paragraph reflection on
-> what the AI got wrong consistently, what it got surprisingly right, and
-> how the iterative + trigger-based audit trail compares to a single-shot
-> sandbox experiment.
+Three patterns emerged from the live audit trail in
+[`genai/issues.md`](./genai/issues.md), worth naming explicitly because
+they shape how I'd use AI on the next greenfield project.
 
-- _(populated in Sprint 3 cleanup pass)_
+**What Claude got consistently wrong.** Reaching for APIs that *used to
+exist*. `OptionsBuilder.Bind` (correct API is `BindConfiguration`),
+`HealthCheckRegistration` as a `ServiceDescriptor` (it's not — it's
+configured via `IConfigureOptions<HealthCheckServiceOptions>`),
+`AntiforgeryMetadata.ValidationRequired` as a public class (it's
+internal). These are stale-API failures: the suggestion compiles in a
+mental model from a previous library version, but doesn't compile or
+doesn't behave correctly in the current one. The fix path was always
+the same — the build broke, I read the error, the AI corrected on the
+next turn. But this is the failure mode I'd watch for first when using
+AI on framework-heavy work in 2026.
+
+**What Claude got surprisingly right.** The boring scaffolding —
+project structure, dependency wiring, test fixtures, exception-to-
+ProblemDetails mapping, the `SqlExecutor` shape — landed close to
+correct on the first pass and required only marginal review. Claude is
+a strong "first 80%" partner on patterns that are well-documented and
+consensus in the ecosystem; the time saved there freed budget for the
+parts that DON'T have consensus (cookie-vs-localStorage, zone vs
+zoneless, cash-register input, the antiforgery metadata footgun) where
+deliberate design is the value.
+
+**The trigger-based audit vs single-shot experiment.** The original
+plan considered running a sandboxed "give Claude the prompt and walk
+away" experiment as the GenAI section. I rejected it for two reasons:
+sandboxed output isn't representative of how I actually work
+(iteratively, with corrections), and the artifact of correction is
+itself the most interesting signal. Instead, the live trigger pattern
+(`audit isso` → card appended) plus end-of-sprint cleanup passes
+produced 19 cards anchored to real commits — verifiable through
+`git log -- docs/genai/issues.md` rather than reconstructed from
+memory. The two-section split (cleanup-pass vs human-discovered) makes
+the catch source structurally legible: a reviewer can scan and see
+where Claude self-audited and where I had to step in. The strongest
+authenticity signal in the entire deliverable is the
+"Human-discovered cards" section being non-empty — proof that I
+actually exercised the running app and caught what the AI's review
+missed (the leading-zero default, the premature error timing, the
+cash-register entry pattern, the unenforced CSRF).
+
+The methodology is the artifact. The cards are the evidence.
