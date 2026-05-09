@@ -1,4 +1,5 @@
 using BallastLane.Application.Auth;
+using BallastLane.Application.Expenses;
 using BallastLane.Application.Users;
 using BallastLane.Infrastructure.Configuration;
 using BallastLane.Infrastructure.HealthChecks;
@@ -47,6 +48,7 @@ public static class DependencyInjection
         services.AddSingleton<IPasswordHasher, Argon2idPasswordHasher>();
         services.AddSingleton<ITokenService, JwtTokenService>();
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IExpenseRepository, ExpenseRepository>();
 
         services.AddHealthChecks()
             .AddCheck<SqlServerHealthCheck>(
