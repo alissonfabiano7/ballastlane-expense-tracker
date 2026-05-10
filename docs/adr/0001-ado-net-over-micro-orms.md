@@ -51,7 +51,7 @@ Repositories use the helper; SQL is parameterized at the call site.
 - **EF Core** — banned by the brief.
 - **RepoDb / SqlKata** — micro-ORMs that would invite the question "if
   you're going to use a micro-ORM, why not Dapper?" The constraint is
-  better answered by ADO.NET puro.
+  better answered by plain ADO.NET.
 
 ## Notes
 

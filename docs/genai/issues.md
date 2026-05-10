@@ -404,11 +404,12 @@ Fix at commit `2c29247` (Sprint 2.5).
 ### What AI generated
 
 The Sprint 1 API was written assuming the developer would always launch via
-`Properties/launchSettings.json` — a file that is gitignored. With a fresh
-clone and `dotnet run --no-launch-profile`, Kestrel falls back to
-`ASPNETCORE_URLS` (unset), and `appsettings.Development.json` is not loaded
-unless `ASPNETCORE_ENVIRONMENT=Development` is also set, so JWT and SQL
-config validation throw on startup with cascading inner exceptions.
+`Properties/launchSettings.json`, which the `dotnet new` template gitignores
+by default. With a fresh clone and `dotnet run --no-launch-profile`, Kestrel
+falls back to `ASPNETCORE_URLS` (unset), and `appsettings.Development.json`
+is not loaded unless `ASPNETCORE_ENVIRONMENT=Development` is also set, so
+JWT and SQL config validation throw on startup with cascading inner
+exceptions.
 
 ### Why it's wrong
 
@@ -559,7 +560,7 @@ via an explicit guard — unreachable in practice because
 kept for type narrowing and defensive clarity. Considered also
 adding `(focus)="select()"` to help the edit flow but rejected as
 out of scope: the reported bug is the create-time `0`, and Material's
-default is no auto-select. Fix at commit `60c5b1d`.
+default is no auto-select. Fix at commit `60c5b1d` (Sprint 3).
 
 ---
 
@@ -608,7 +609,7 @@ component-local `@if (invalid && touched)` guards still gate whether
 the `<mat-error>` element is projected into the DOM, but Material's
 form-field gates final visibility on the matcher's `errorState`; the
 guards are now redundant but harmless and were left in place to avoid
-a refactor that wasn't on the bug. Fix at commit `996a489`.
+a refactor that wasn't on the bug. Fix at commit `996a489` (Sprint 3).
 
 ---
 
@@ -653,7 +654,7 @@ through every focus/blur cycle until the user types a value.
 Scoped to the Amount field only. Category, Date, and Description
 don't have placeholders to surface, so leaving them with the
 default `floatLabel="auto"` keeps the cleaner Material look. Fix
-at commit `996a489`.
+at commit `996a489` (Sprint 3).
 
 ---
 
@@ -712,7 +713,7 @@ the component just owns the template-side wiring now. Edit-flow
 choice (per user direction): keystrokes append to the existing
 value rather than reset on focus — if the user wants to retype
 from scratch they backspace the old value out first. Fix at
-commit `996a489`.
+commit `996a489` (Sprint 3).
 
 ---
 
@@ -751,7 +752,7 @@ gate. The mat-error message ("Please enter a valid email address.")
 covers both validators since the user-visible meaning is the same.
 Server-side `FluentValidation`'s `EmailAddress()` was left as-is —
 client tightening is enough to remove the round-trip on obvious typos,
-and the server still has the final word. Fix at commit `996a489`.
+and the server still has the final word. Fix at commit `996a489` (Sprint 3).
 
 ---
 
@@ -805,7 +806,7 @@ update as they type. Applies globally to login, register, and the
 expense form. The `markAllAsTouched()` calls in submit handlers are
 left in place — harmless under the new matcher and still useful if a
 field-level consumer ever depends on `touched`. Fix at commit
-`8a9e23e`.
+`8a9e23e` (Sprint 3).
 
 ---
 
@@ -861,7 +862,7 @@ Replaced the bare `value.incurredAt.toISOString()` in `onSubmit`
 with a call to the helper. Localized to one file; no server change.
 The deferred Sprint 2.1 domain UTC + Category guards work would
 harden this further on the server side but is out of scope for this
-card. Fix at commit `aa8b316`.
+card. Fix at commit `aa8b316` (Sprint 3).
 
 ---
 
@@ -924,7 +925,7 @@ authenticated principal and rejects the older token. The SPA already
 calls `auth.fetchCsrfToken()` after login for exactly this reason —
 the test fixture was the missing piece. A new test
 `POST_expenses_returns_400_when_csrf_token_missing` locks in the new
-guard. Fix at commit `65eb192`.
+guard. Fix at commit `65eb192` (Sprint 3).
 
 ---
 

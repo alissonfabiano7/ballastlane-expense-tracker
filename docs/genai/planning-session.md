@@ -14,8 +14,8 @@
 
 ## 1. Context
 
-**Brief.** Ballast Lane Senior .NET Engineer take-home. 72h corridos. Single
-deliverable repository with backend (.NET) + frontend (SPA) + database
+**Brief.** Ballast Lane Senior .NET Engineer take-home. 72h consecutive.
+Single deliverable repository with backend (.NET) + frontend (SPA) + database
 container; live presentation + code review on the panel side.
 
 **Hard constraints from the brief:**
@@ -27,9 +27,9 @@ container; live presentation + code review on the panel side.
 - Responsive Angular frontend.
 - README + GenAI section + live presentation.
 
-**Time budget.** ~28h productive (after sleep / meals / buffer).
-Architecture has to fit that envelope; no investment that doesn't ship in
-the 72h window.
+**Time budget.** ~31h productive across three sprints (after sleep / meals
+/ buffer). Architecture has to fit that envelope; no investment that doesn't
+ship in the 72h window.
 
 **Defense rule.** Every choice has to fit into a 30-second answer at the
 panel review. Items that recommend but might not be defendable were marked
@@ -44,8 +44,8 @@ during planning and resolved with a fallback.
 | Runtime | **.NET 10 LTS** | LTS through Nov/2028. .NET 8 LTS expires Nov/2026 — picking 10 reads as candidate-current. |
 | API style | **Minimal APIs with `MapGroup` + `IEndpointFilter`** | Mainstream default in .NET 10; less reflection, smaller cold start, same separation as Controllers via Route Groups. |
 | Database | **SQL Server 2025** in a container (Docker or Podman) | Latest GA image; the same `compose.yml` runs unchanged on either runtime. Schema is small; nothing version-specific. |
-| Migrations | **Grate** | Port of RoundhousE; idempotent by script hash; CI/CD-friendly out of the box. The "DbUp moderno". |
-| Data access | **ADO.NET puro** + thin `SqlExecutor` helper | Constraint-driven (no ORM allowed); helper centralizes connection lifecycle and Polly retry without being a micro-ORM itself. |
+| Migrations | **Grate** | Port of RoundhousE; idempotent by script hash; CI/CD-friendly out of the box. The modern DbUp. |
+| Data access | **Plain ADO.NET** + thin `SqlExecutor` helper | Constraint-driven (no ORM allowed); helper centralizes connection lifecycle and Polly retry without being a micro-ORM itself. |
 | Password hashing | **Argon2id via Konscious.Security.Cryptography** with OWASP 2024 params | OWASP gold standard since 2015; memory-hard, GPU-resistant; explicit `m=19456 / t=2 / p=1` so parameters can be re-tuned per hardware. |
 | JWT delivery | **HttpOnly cookie + SameSite=Lax + anti-CSRF token** | XSS-resistant (token inaccessible to JS); SameSite blocks most CSRF; `Microsoft.AspNetCore.Antiforgery` covers the rest. |
 | Validation | **FluentValidation** | Validators isolated, unit-testable, decoupled from the endpoint. |
@@ -117,8 +117,7 @@ is the right amount.
 
 **Rule of iron.** The `Api` layer never references `Microsoft.Data.SqlClient`.
 The `Domain` layer never references ASP.NET. Project file references
-enforce this at the compile boundary; an ArchUnitNET project is scaffolded
-as a stretch goal for asserting the same as a test.
+enforce this at the compile boundary.
 
 The full layer-by-layer walkthrough is in
 [`../architecture.md`](../architecture.md).
@@ -129,7 +128,7 @@ The full layer-by-layer walkthrough is in
 
 | Question | Answer | Defense |
 |---|---|---|
-| Token type | JWT access-only, 1h TTL | Refresh tokens are stretch goal in 28h. Re-login on expire. |
+| Token type | JWT access-only, 1h TTL | Refresh tokens are out of scope for the 31h envelope. Re-login on expire. |
 | Algorithm | HS256 | Symmetric, single secret. RS256 only buys benefit in multi-service. |
 | Hashing | Argon2id (Konscious), OWASP params, ~250ms target | Memory-hard, GPU-resistant. BCL doesn't ship a public Argon2id API. |
 | Claims | `sub` (UserId), `email`, `iat`, `exp` | Minimum defendable. No roles because no requirement. |
@@ -146,8 +145,6 @@ The full layer-by-layer walkthrough is in
 
 ```
               ┌──────────────────┐
-              │  ArchitectureTests│  (ArchUnitNET, 4-5 rules — stretch)
-              ├──────────────────┤
               │  Api.Tests        │  (WebApplicationFactory, ~20 tests)
               ├──────────────────┤
               │  Infrastructure.  │  (Argon2id + SqlExecutor pipeline + stretch TestContainers)
@@ -252,7 +249,7 @@ that anchors it is in [`../genai.md`](../genai.md).
 - Docker image of the API (only the database is containerized).
 - CI / GitHub Actions.
 
-Each of these was considered and explicitly cut to fit the 28h envelope
+Each of these was considered and explicitly cut to fit the 31h envelope
 without leaving the core thin.
 
 ---

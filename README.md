@@ -71,7 +71,7 @@ artifacts:
   Claude got right, what it got wrong, and how the live trigger-based
   audit compared to a sandboxed single-shot experiment.
 - [`docs/genai/issues.md`](./docs/genai/issues.md) — the live audit trail:
-  19 issue cards documenting every correction applied to AI-generated
+  20 issue cards documenting every correction applied to AI-generated
   code, organized into "AI self-audit" and "human-discovered" sections.
 - [`docs/genai/planning-session.md`](./docs/genai/planning-session.md) —
   sanitized planning artifact from the Claude Code planning session that
@@ -236,8 +236,7 @@ tests/
 ├── BallastLane.Domain.Tests/        ← pure unit tests (18)
 ├── BallastLane.Application.Tests/   ← TDD focus: NSubstitute + Shouldly (61)
 ├── BallastLane.Infrastructure.Tests/← Argon2id + SqlExecutor pipeline (10)
-├── BallastLane.Api.Tests/           ← WebApplicationFactory integration tests (23)
-└── BallastLane.ArchitectureTests/   ← (stretch — currently scaffolded, no rules yet)
+└── BallastLane.Api.Tests/           ← WebApplicationFactory integration tests (23)
 db/
 ├── BallastLane.Migrations/          ← Grate runner
 └── scripts/up/                      ← 0001_init.sql + 0002_seed.sql (idempotent)
@@ -266,7 +265,7 @@ during development, organized into two sections by source:
 - **Cleanup-pass cards** (11 entries, five-section template, empty
   `Human revalidation` by convention) — issues surfaced by Claude reading git
   diffs at sprint boundaries.
-- **Human-discovered cards** (8+ entries, three-section template, written
+- **Human-discovered cards** (9 entries, three-section template, written
   entirely in the developer's voice) — issues caught through direct usage of
   the running app or manual code review. The strongest authenticity signal in
   the audit trail.
@@ -296,8 +295,7 @@ Defended in the live presentation if asked:
   entity does not yet `EnsureUtc(...)` on construction. Tracked as Sprint 2.1
   in the planning artifact, deferred per developer direction.
 - **Stretch goals not pursued:** TestContainers integration tests for the
-  repositories, ArchUnitNET rules (project scaffolded but empty), CI via
-  GitHub Actions.
+  repositories, CI via GitHub Actions.
 
 ---
 

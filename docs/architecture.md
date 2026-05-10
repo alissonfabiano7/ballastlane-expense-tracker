@@ -64,8 +64,7 @@ interfaces live in `Infrastructure` and are wired only at `Program.cs`.
 
 The dependency rule is enforced in code via the project file references
 (`Application` simply has no `<PackageReference>` to SqlClient, so it can't
-compile against it). An ArchUnitNET project is scaffolded as a stretch goal
-for asserting the same rule as a test; it's currently empty.
+compile against it).
 
 ---
 
@@ -369,7 +368,7 @@ record. The full ADR set is in [`adr/`](./adr/).
   as a TDD storyline (`test: cover X` → `feat: implement X` →
   `refactor: ...`); imperative mood is the open-source default and the
   consensus in international teams.
-- **Grate vs DbUp / FluentMigrator** — Grate is the "DbUp moderno":
+- **Grate vs DbUp / FluentMigrator** — Grate is the modern DbUp:
   port of RoundhousE, idempotent by script hash, CI/CD-friendly out of
   the box. FluentMigrator's fluent C# would have read as ORM-ish, which
   the exercise bans by spirit if not by letter.
