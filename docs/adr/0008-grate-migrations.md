@@ -5,7 +5,8 @@
 ## Context
 
 The schema lives in two tables (`Users`, `Expenses`); the database is
-SQL Server 2025 in a Podman container. Migrations need to be:
+SQL Server 2025 in a container (Docker or Podman — the same `compose.yml`
+runs on either). Migrations need to be:
 
 - Idempotent on re-run (CI / clone-fresh / panel demo)
 - Versioned and inspectable as plain SQL

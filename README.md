@@ -14,16 +14,16 @@ without an ORM.
 
 ## ⚡ Quick Start
 
-**Prerequisites:** .NET 10 SDK · Node 20+ · Podman 5+ **or** Docker 24+ · git
+**Prerequisites:** .NET 10 SDK · Node 20+ · Docker 24+ **or** Podman 5+ · git
 
 ```sh
 # 0. One-time — restore the .NET tools the migrations runner depends on (`grate`).
 dotnet tool restore
 
 # 1. SQL Server 2025 — bring the database container up.
-podman machine start                 # Podman on macOS/Windows only — safe to re-run if already started
-podman compose up -d --wait          # `--wait` blocks until the SQL healthcheck passes (~30s on first boot)
-# Docker users: skip `machine start` and use `docker compose up -d --wait`.
+docker compose up -d --wait          # `--wait` blocks until the SQL healthcheck passes (~30s on first boot)
+# Podman users: prefix with `podman machine start` on macOS/Windows (safe to re-run if already started),
+# then replace `docker compose` with `podman compose` — the compose.yml is portable across both.
 
 # 2. Apply schema + seed — creates demo user + 8 sample expenses. Idempotent on re-run.
 dotnet run --project db/BallastLane.Migrations
@@ -144,7 +144,7 @@ of a Claude Code planning session run before the first line of code.
 | Health checks | **`Microsoft.Extensions.Diagnostics.HealthChecks`** with custom `IHealthCheck` running `SELECT 1` via ADO.NET |
 | Tests | **xUnit + NSubstitute + Shouldly** (FluentAssertions v8 went commercial in Jan/2025; Shouldly is the MIT alternative) |
 | Frontend | **Angular 21** (zone-based, OnPush + signals everywhere), Angular Material, Reactive Forms |
-| Database | **SQL Server 2025** (`mcr.microsoft.com/mssql/server:2025-latest`) via Podman |
+| Database | **SQL Server 2025** (`mcr.microsoft.com/mssql/server:2025-latest`) via Docker (Podman compatible — same `compose.yml`) |
 
 ---
 
@@ -305,8 +305,8 @@ Defended in the live presentation if asked:
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| `podman compose up -d` errors with "Cannot connect to Podman" | Podman Machine VM not running | `podman machine start` |
-| Migrations hang for ~30s and then fail with "wait operation timed out" | The connection string used `Server=localhost,1433`; the IPv6 path doesn't reach Podman's IPv4 listener | Already fixed — connection string is `tcp:127.0.0.1,1433`. If you cloned and changed it, revert. |
+| `docker compose up` / `podman compose up` errors with "Cannot connect to Docker daemon" or "Cannot connect to Podman" | Container runtime not running. On macOS/Windows: Docker Desktop not started, or (Podman) `podman machine` VM not started | Start Docker Desktop, or run `podman machine start` |
+| Migrations hang for ~30s and then fail with "wait operation timed out" | The connection string used `Server=localhost,1433`; the IPv6 path doesn't reach the container runtime's IPv4 listener (most common with Podman, also seen on some Docker Desktop setups) | Already fixed — connection string is `tcp:127.0.0.1,1433`. If you cloned and changed it, revert. |
 | `dotnet run --project src/BallastLane.Api` errors with "Sql:ConnectionString is required" or "Jwt:Secret must be at least 32 characters" | `ASPNETCORE_ENVIRONMENT` is not `Development`, so `appsettings.Development.json` is not loaded | The committed `Properties/launchSettings.json` sets this for you. If it's missing, `set ASPNETCORE_ENVIRONMENT=Development` (Windows) or `export ASPNETCORE_ENVIRONMENT=Development` (Unix) before `dotnet run`. |
 | `ng serve` errors with "Could not resolve @angular/animations/browser" | Material was added but `@angular/animations` peer wasn't pulled in | `npm install @angular/animations@^21.2.0 --save` (already in `package.json` after the fix). |
 | `POST /expenses` returns `400 Invalid or missing anti-forgery token.` | The client did not send `X-XSRF-TOKEN` header | The Angular SPA's `credentialsInterceptor` reads the `XSRF-TOKEN` cookie and sets the header automatically. From `curl`, fetch `/auth/csrf-token` after `/auth/login` and pass the cookie value as `-H "X-XSRF-TOKEN: <value>"`. |

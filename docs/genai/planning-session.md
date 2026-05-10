@@ -43,7 +43,7 @@ during planning and resolved with a fallback.
 |---|---|---|
 | Runtime | **.NET 10 LTS** | LTS through Nov/2028. .NET 8 LTS expires Nov/2026 — picking 10 reads as candidate-current. |
 | API style | **Minimal APIs with `MapGroup` + `IEndpointFilter`** | Mainstream default in .NET 10; less reflection, smaller cold start, same separation as Controllers via Route Groups. |
-| Database | **SQL Server 2025** via Podman | Latest GA image; Podman doubles as a Docker drop-in. Schema is small; nothing version-specific. |
+| Database | **SQL Server 2025** in a container (Docker or Podman) | Latest GA image; the same `compose.yml` runs unchanged on either runtime. Schema is small; nothing version-specific. |
 | Migrations | **Grate** | Port of RoundhousE; idempotent by script hash; CI/CD-friendly out of the box. The "DbUp moderno". |
 | Data access | **ADO.NET puro** + thin `SqlExecutor` helper | Constraint-driven (no ORM allowed); helper centralizes connection lifecycle and Polly retry without being a micro-ORM itself. |
 | Password hashing | **Argon2id via Konscious.Security.Cryptography** with OWASP 2024 params | OWASP gold standard since 2015; memory-hard, GPU-resistant; explicit `m=19456 / t=2 / p=1` so parameters can be re-tuned per hardware. |
