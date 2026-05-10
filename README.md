@@ -51,6 +51,41 @@ thanks to Grate's hash-based idempotence.
 
 ---
 
+## 📖 How to read this repo
+
+If you're reviewing this take-home, here's the map of the thought-process
+artifacts:
+
+- **You're here** — README: high-level decisions, stack, security baseline,
+  ADR index, troubleshooting.
+- [`docs/architecture.md`](./docs/architecture.md) — the architecture
+  walkthrough: four layers, the dependency rule, what each project is
+  and is NOT allowed to know, and the cross-cutting decisions (auth,
+  validation, error handling, resilience, observability).
+- [`docs/adr/`](./docs/adr/) — eight one-page ADRs, one decision each
+  (ADO.NET vs ORMs, Argon2id vs BCrypt, JWT-cookie vs localStorage,
+  Minimal APIs vs Controllers, Polly retry, Grate, Conventional Commits,
+  Angular 21 zone-based).
+- [`docs/genai.md`](./docs/genai.md) — the GenAI deliverable headline:
+  the seed prompt, audit-trail summary, and final reflection on what
+  Claude got right, what it got wrong, and how the live trigger-based
+  audit compared to a sandboxed single-shot experiment.
+- [`docs/genai/issues.md`](./docs/genai/issues.md) — the live audit trail:
+  19 issue cards documenting every correction applied to AI-generated
+  code, organized into "AI self-audit" and "human-discovered" sections.
+- [`docs/genai/planning-session.md`](./docs/genai/planning-session.md) —
+  sanitized planning artifact from the Claude Code planning session that
+  ran before the first line of code. Reads as evidence of planning-first
+  rather than vibe-coding.
+- [`CLAUDE.md`](./CLAUDE.md) — the project conventions read by Claude at
+  every session: language rule, commit style, the GenAI Audit Trail
+  directive that governs `docs/genai/issues.md`.
+
+A reviewer with 5 minutes can stop at this README. A reviewer with 30
+minutes will find more depth in `architecture.md` and the audit trail.
+
+---
+
 ## 🏗️ Architecture
 
 Four-project Clean Architecture with a strict dependency rule (each arrow
