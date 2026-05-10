@@ -14,37 +14,40 @@ without an ORM.
 
 ## ⚡ Quick Start
 
-**Prerequisites:** .NET 10 SDK · Node 20+ · Podman 5+ (or Docker) · git
+**Prerequisites:** .NET 10 SDK · Node 20+ · Podman 5+ **or** Docker 24+ · git
 
 ```sh
-# 1. SQL Server 2025 via Podman
-podman machine start                 # if the VM is not running yet
-podman compose up -d                 # starts ballastlane-sqlserver on :1433
+# 0. One-time — restore the .NET tools the migrations runner depends on (`grate`).
+dotnet tool restore
 
-# 2. Apply schema + seed (creates demo user + 8 sample expenses)
+# 1. SQL Server 2025 — bring the database container up.
+podman machine start                 # Podman on macOS/Windows only — safe to re-run if already started
+podman compose up -d --wait          # `--wait` blocks until the SQL healthcheck passes (~30s on first boot)
+# Docker users: skip `machine start` and use `docker compose up -d --wait`.
+
+# 2. Apply schema + seed — creates demo user + 8 sample expenses. Idempotent on re-run.
 dotnet run --project db/BallastLane.Migrations
 
 # 3. Backend — terminal 1
 dotnet run --project src/BallastLane.Api
-# → http://localhost:5080  (port pinned by Properties/launchSettings.json)
+# → http://localhost:5080  (port pinned by Properties/launchSettings.json,
+#    which also sets ASPNETCORE_ENVIRONMENT=Development so appsettings.Development.json loads)
 
 # 4. Frontend — terminal 2
 cd web
-npm install                          # first time only
-npm start
-# → http://localhost:4200  (proxies /auth, /expenses, /health to :5080)
+npm install                          # first time only (~60s)
+npm start                            # alias for `ng serve`
+# → http://localhost:4200  (the dev server proxies /auth, /expenses, /health to :5080)
 ```
 
-Open `http://localhost:4200` and sign in.
-
-## 🔐 Demo credentials
+Sign in at <http://localhost:4200>:
 
 - **Email:** `demo@ballastlane.test`
 - **Password:** `Demo@123`
 
-The seed migration provisions this user and 8 expenses across all categories
-(Food, Transport, Housing, Leisure, Health, Education, Other). Re-running the
-migration is idempotent.
+You should see 8 sample expenses across all categories (Food, Transport,
+Housing, Leisure, Health, Education, Other). Re-running step 2 is a no-op
+thanks to Grate's hash-based idempotence.
 
 ---
 
